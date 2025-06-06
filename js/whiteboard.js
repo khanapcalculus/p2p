@@ -10,7 +10,7 @@ class Whiteboard {
     this.pages = [];
     this.currentPageIndex = 0;
     this.canvasSize = {
-      width: Math.max(800, window.innerWidth - 100),  // Window width minus margins
+      width: Math.max(800, window.innerWidth - 400),  // Window width minus tools and camera
       height: Math.max(1200, (window.innerHeight - 200) * 2)  // Double the available height
     };
     this.changeTimeout = null; // For debouncing changes
@@ -37,7 +37,7 @@ class Whiteboard {
 
   handleResize() {
     // Update canvas size on window resize
-    this.canvasSize.width = Math.max(800, window.innerWidth - 100);
+    this.canvasSize.width = Math.max(800, window.innerWidth - 400);
     this.canvasSize.height = Math.max(1200, (window.innerHeight - 200) * 2);
     this.setupCanvas();
   }
@@ -52,8 +52,8 @@ class Whiteboard {
     this.canvas.skipOffscreen = true;
     
     // Set viewport to show portion of canvas
-    const viewportWidth = Math.min(window.innerWidth - 200, this.canvasSize.width); // Leave space for tools
-    const viewportHeight = Math.min(window.innerHeight - 300, this.canvasSize.height); // Leave space for camera and nav
+    const viewportWidth = Math.min(window.innerWidth - 400, this.canvasSize.width); // Leave space for tools and camera
+    const viewportHeight = Math.min(window.innerHeight - 300, this.canvasSize.height); // Leave space for header and nav
     
     // Update canvas container
     const canvasContainer = document.getElementById('whiteboard').parentElement;
@@ -206,36 +206,41 @@ class Whiteboard {
 
   setTool(tool) {
     this.currentTool = tool;
-
-    // Reset canvas mode
-    this.canvas.isDrawingMode = false;
-    this.isPanning = false;
-
+    
+    // Clear selection
+    this.canvas.discardActiveObject();
+    this.canvas.renderAll();
+    
+    // Configure canvas based on tool
     switch (tool) {
       case 'pencil':
         this.canvas.isDrawingMode = true;
         this.canvas.freeDrawingBrush.color = this.color;
         this.canvas.freeDrawingBrush.width = this.brushSize;
+        this.canvas.selection = false;
+        this.isPanning = false;
         this.canvas.defaultCursor = 'crosshair';
-        this.canvas.selection = true;
         break;
       case 'eraser':
         this.canvas.isDrawingMode = true;
-        this.canvas.freeDrawingBrush.color = '#ffffff';
+        this.canvas.freeDrawingBrush.color = 'white';
         this.canvas.freeDrawingBrush.width = this.brushSize * 2;
+        this.canvas.selection = false;
+        this.isPanning = false;
         this.canvas.defaultCursor = 'crosshair';
-        this.canvas.selection = true;
         break;
       case 'pan':
+        this.canvas.isDrawingMode = false;
+        this.canvas.selection = false;
         this.isPanning = true;
         this.canvas.defaultCursor = 'grab';
-        this.canvas.selection = false; // Disable selection when panning
-        this.canvas.forEachObject(obj => obj.selectable = false); // Make objects non-selectable
         break;
       default:
-        this.canvas.defaultCursor = 'default';
+        // For line, rect, circle, text tools
+        this.canvas.isDrawingMode = false;
         this.canvas.selection = true;
-        this.canvas.forEachObject(obj => obj.selectable = true); // Re-enable selection
+        this.isPanning = false;
+        this.canvas.defaultCursor = 'crosshair';
         break;
     }
   }
@@ -249,8 +254,10 @@ class Whiteboard {
 
   setBrushSize(size) {
     this.brushSize = size;
-    if (this.canvas.isDrawingMode) {
-      this.canvas.freeDrawingBrush.width = this.currentTool === 'eraser' ? size * 2 : size;
+    if (this.currentTool === 'pencil') {
+      this.canvas.freeDrawingBrush.width = size;
+    } else if (this.currentTool === 'eraser') {
+      this.canvas.freeDrawingBrush.width = size * 2;
     }
   }
 

@@ -28,34 +28,6 @@
       </div>
     </div>
     
-    <!-- Camera section at top -->
-    <div class="camera-section">
-      <div class="camera-container">
-        <div class="video-wrapper" id="video-wrapper">
-          <video id="local-video" autoplay muted></video>
-          <div class="video-label">You</div>
-        </div>
-        <div class="video-wrapper" id="remote-video-wrapper">
-          <video id="remote-video" autoplay></video>
-          <div class="video-label">Remote User</div>
-        </div>
-      </div>
-      
-      <div class="camera-controls">
-        <div class="camera-size-controls">
-          <label>Camera Size:</label>
-          <button id="camera-small" class="size-btn">Small</button>
-          <button id="camera-medium" class="size-btn">Medium</button>
-          <button id="camera-large" class="size-btn active">Large</button>
-        </div>
-        <div class="video-controls">
-          <button id="toggle-video">Toggle Video</button>
-          <button id="toggle-audio">Toggle Audio</button>
-          <button id="share-screen">Share Screen</button>
-        </div>
-      </div>
-    </div>
-    
     <!-- Main workspace -->
     <div class="workspace">
       <!-- Drawing tools on left edge -->
@@ -88,6 +60,36 @@
       <div class="canvas-area">
         <div class="whiteboard-container">
           <canvas id="whiteboard"></canvas>
+        </div>
+      </div>
+      
+      <!-- Camera section on right side -->
+      <div class="camera-section">
+        <div class="camera-container">
+          <div class="video-wrapper" id="video-wrapper">
+            <video id="local-video" autoplay muted></video>
+            <div class="video-label">You</div>
+          </div>
+          <div class="video-wrapper" id="remote-video-wrapper">
+            <video id="remote-video" autoplay></video>
+            <div class="video-label">Remote User</div>
+          </div>
+        </div>
+        
+        <div class="camera-controls">
+          <div class="camera-size-controls">
+            <label>Camera Size:</label>
+            <div class="size-btn-group">
+              <button id="camera-small" class="size-btn">Small</button>
+              <button id="camera-medium" class="size-btn">Medium</button>
+              <button id="camera-large" class="size-btn active">Large</button>
+            </div>
+          </div>
+          <div class="video-controls">
+            <button id="toggle-video">Toggle Video</button>
+            <button id="toggle-audio">Toggle Audio</button>
+            <button id="share-screen">Share Screen</button>
+          </div>
         </div>
       </div>
     </div>
@@ -123,5 +125,4 @@
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>
 </body>
-</html>
 </html>
