@@ -19,7 +19,6 @@ class UI {
       circleTool: document.getElementById('circle-tool'),
       textTool: document.getElementById('text-tool'),
       eraserTool: document.getElementById('eraser-tool'),
-      panTool: document.getElementById('pan-tool'),
       clearCanvas: document.getElementById('clear-canvas'),
       colorSelector: document.getElementById('color-selector'),
       brushSize: document.getElementById('brush-size'),
@@ -42,7 +41,6 @@ class UI {
       this.elements.circleTool,
       this.elements.textTool,
       this.elements.eraserTool,
-      this.elements.panTool
     ];
     
     this.cameraSizeButtons = [

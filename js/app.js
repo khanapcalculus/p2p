@@ -105,21 +105,28 @@ class WhiteboardApp {
   }
 
   async retryMediaAccess() {
-    this.ui.updateStatus('Retrying camera access...');
+    this.ui.updateStatus('Retrying camera access...', 'info');
     
     try {
       const stream = await this.peer.getLocalStream(true, true);
       if (stream) {
         this.ui.setLocalStream(stream);
-        this.ui.updateStatus('Camera access successful!');
+        this.ui.updateStatus('Camera access successful!', 'success');
+        
+        // Ensure media is properly connected to peer if connected
+        if (this.peer.peer && this.peer.peer.connectionState === 'connected') {
+          this.peer.ensureMediaConnection();
+          this.ui.updateStatus('Media connected to peer', 'success');
+        }
+        
         return true;
       } else {
-        this.ui.updateStatus('Camera access failed - continuing without media');
+        this.ui.updateStatus('Camera access failed - continuing without media', 'warning');
         return false;
       }
     } catch (error) {
       console.error('Retry media access failed:', error);
-      this.ui.updateStatus('Camera access failed - check browser permissions');
+      this.ui.updateStatus('Camera access failed - check browser permissions', 'error');
       return false;
     }
   }

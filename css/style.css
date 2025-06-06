@@ -168,26 +168,49 @@ button:hover {
   justify-content: center;
   align-items: center;
   background-color: #e9ecef;
-  padding: 20px;
+  padding: 0;
 }
 
 .whiteboard-container {
   background-color: white;
-  border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
   touch-action: none;
+  border: 1px solid #ddd;
 }
 
 #whiteboard {
   background-color: white;
   cursor: crosshair;
-  border: 1px solid #ddd;
-  touch-action: none;
+  border: none;
+  touch-action: pan-x pan-y;
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+  display: block;
+}
+
+/* Custom scrollbar styling */
+.whiteboard-container::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.whiteboard-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.whiteboard-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 6px;
+}
+
+.whiteboard-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.whiteboard-container::-webkit-scrollbar-corner {
+  background: #f1f1f1;
 }
 
 /* Camera section on right side */
@@ -409,35 +432,42 @@ video {
   
   .tools-panel {
     width: 100%;
-    height: 80px;
+    height: 60px;
     flex-direction: row;
     justify-content: center;
-    padding: 10px;
+    padding: 5px;
+    order: 2; /* Move tools below canvas on mobile */
   }
   
   .drawing-tools {
     flex-direction: row;
     margin-bottom: 0;
-    margin-right: 20px;
+    margin-right: 15px;
   }
   
   .tool, .clear-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 16px;
+    width: 35px;
+    height: 35px;
+    font-size: 14px;
   }
   
   .tool-options {
     flex-direction: row;
-    gap: 10px;
+    gap: 8px;
+  }
+  
+  .canvas-area {
+    order: 1; /* Canvas first on mobile */
+    flex: 1;
   }
   
   .camera-section {
     width: 100%;
     flex-direction: row;
     justify-content: center;
-    height: 80px;
+    height: 70px;
     padding: 5px;
+    order: 3; /* Camera last on mobile */
   }
   
   .camera-container {
@@ -463,7 +493,7 @@ video {
   
   .page-navigation {
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
   
   .header h1 {
@@ -474,5 +504,11 @@ video {
   .controls {
     flex-direction: column;
     gap: 3px;
+  }
+  
+  /* Adjust scrollbar for mobile */
+  .whiteboard-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
 }

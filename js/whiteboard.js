@@ -5,21 +5,15 @@ class Whiteboard {
     this.currentTool = 'pencil';
     this.color = '#000000';
     this.brushSize = 3;
-    this.isPanning = false;
-    this.lastPanPoint = { x: 0, y: 0 };
     this.pages = [];
     this.currentPageIndex = 0;
-    this.canvasSize = {
-      width: Math.max(800, window.innerWidth - 400),  // Window width minus tools and camera
-      height: Math.max(1200, (window.innerHeight - 200) * 2)  // Double the available height
-    };
     this.changeTimeout = null; // For debouncing changes
     this.drawingBuffer = []; // For continuous drawing
     this.initialize();
   }
 
   initialize() {
-    // Set window-sized canvas
+    // Set up canvas with exact sizing
     this.setupCanvas();
     
     // Create first page
@@ -37,42 +31,50 @@ class Whiteboard {
 
   handleResize() {
     // Update canvas size on window resize
-    this.canvasSize.width = Math.max(800, window.innerWidth - 400);
-    this.canvasSize.height = Math.max(1200, (window.innerHeight - 200) * 2);
     this.setupCanvas();
   }
 
   setupCanvas() {
-    // Set canvas to window-based size
-    this.canvas.setWidth(this.canvasSize.width);
-    this.canvas.setHeight(this.canvasSize.height);
+    // Calculate exact canvas dimensions
+    const toolsWidth = 120; // Tools panel width
+    const cameraWidth = 200; // Camera panel width
+    const headerHeight = 60; // Approximate header height
+    const bottomHeight = 60; // Approximate bottom panel height
+    
+    // Canvas container dimensions (available space)
+    const containerWidth = window.innerWidth - toolsWidth - cameraWidth;
+    const containerHeight = window.innerHeight - headerHeight - bottomHeight;
+    
+    // Canvas dimensions (double height for scrolling)
+    const canvasWidth = containerWidth;
+    const canvasHeight = containerHeight * 2; // Double the window height
+    
+    console.log('Canvas dimensions:', canvasWidth, 'x', canvasHeight);
+    console.log('Container dimensions:', containerWidth, 'x', containerHeight);
+    
+    // Set the actual canvas size
+    this.canvas.setWidth(canvasWidth);
+    this.canvas.setHeight(canvasHeight);
+    
+    // Update canvas container for exact fit with scrollbars
+    const canvasContainer = document.getElementById('whiteboard').parentElement;
+    canvasContainer.style.width = `${containerWidth}px`;
+    canvasContainer.style.height = `${containerHeight}px`;
+    canvasContainer.style.overflow = 'auto'; // Enable scrollbars
+    canvasContainer.style.position = 'relative';
+    
+    // Set canvas element to exact size (no CSS scaling)
+    this.canvas.setDimensions({
+      width: canvasWidth,
+      height: canvasHeight
+    }, { cssOnly: false });
     
     // Performance optimizations
     this.canvas.renderOnAddRemove = false;
     this.canvas.skipOffscreen = true;
     
-    // Set viewport to show portion of canvas
-    const viewportWidth = Math.min(window.innerWidth - 400, this.canvasSize.width); // Leave space for tools and camera
-    const viewportHeight = Math.min(window.innerHeight - 300, this.canvasSize.height); // Leave space for header and nav
-    
-    // Update canvas container
-    const canvasContainer = document.getElementById('whiteboard').parentElement;
-    canvasContainer.style.width = `${viewportWidth}px`;
-    canvasContainer.style.height = `${viewportHeight}px`;
-    canvasContainer.style.overflow = 'hidden';
-    canvasContainer.style.position = 'relative';
-    
-    // Set canvas element size for viewport
-    this.canvas.setDimensions({
-      width: viewportWidth,
-      height: viewportHeight
-    }, { cssOnly: true });
-    
-    // Initialize viewport transform
-    this.canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-    
-    // Disable fabric.js touch handling
-    this.canvas.allowTouchScrolling = false;
+    // Disable fabric.js touch handling for scrolling
+    this.canvas.allowTouchScrolling = true;
     
     this.canvas.renderAll();
   }
@@ -211,14 +213,13 @@ class Whiteboard {
     this.canvas.discardActiveObject();
     this.canvas.renderAll();
     
-    // Configure canvas based on tool
+    // Configure canvas based on tool (removed pan tool)
     switch (tool) {
       case 'pencil':
         this.canvas.isDrawingMode = true;
         this.canvas.freeDrawingBrush.color = this.color;
         this.canvas.freeDrawingBrush.width = this.brushSize;
         this.canvas.selection = false;
-        this.isPanning = false;
         this.canvas.defaultCursor = 'crosshair';
         break;
       case 'eraser':
@@ -226,20 +227,12 @@ class Whiteboard {
         this.canvas.freeDrawingBrush.color = 'white';
         this.canvas.freeDrawingBrush.width = this.brushSize * 2;
         this.canvas.selection = false;
-        this.isPanning = false;
         this.canvas.defaultCursor = 'crosshair';
-        break;
-      case 'pan':
-        this.canvas.isDrawingMode = false;
-        this.canvas.selection = false;
-        this.isPanning = true;
-        this.canvas.defaultCursor = 'grab';
         break;
       default:
         // For line, rect, circle, text tools
         this.canvas.isDrawingMode = false;
         this.canvas.selection = true;
-        this.isPanning = false;
         this.canvas.defaultCursor = 'crosshair';
         break;
     }
@@ -333,92 +326,12 @@ class Whiteboard {
     }, 50); // Reduced debounce for more responsive updates
   }
 
-  // Get pointer position that works for both mouse and touch
-  getPointerPosition(e) {
-    const rect = this.canvas.getElement().getBoundingClientRect();
-    let clientX, clientY;
-    
-    if (e.touches && e.touches.length > 0) {
-      // Touch event - use only first touch to avoid palm issues
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      // Mouse event
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-    
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
-      clientX: clientX,
-      clientY: clientY
-    };
-  }
-
   setupCanvasEvents() {
     let startPoint;
     let shape;
-    let isPanningActive = false;
     let isDrawingPath = false;
 
-    // Handle both mouse and touch events for pan
-    const handlePanStart = (e) => {
-      if (this.isPanning) {
-        isPanningActive = true;
-        this.canvas.defaultCursor = 'grabbing';
-        const pos = this.getPointerPosition(e);
-        this.lastPanPoint = { x: pos.clientX, y: pos.clientY };
-        
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    };
-
-    const handlePanMove = (e) => {
-      if (this.isPanning && isPanningActive && this.lastPanPoint) {
-        const pos = this.getPointerPosition(e);
-        const deltaX = pos.clientX - this.lastPanPoint.x;
-        const deltaY = pos.clientY - this.lastPanPoint.y;
-        
-        const vpt = this.canvas.viewportTransform;
-        vpt[4] += deltaX;
-        vpt[5] += deltaY;
-        
-        // Constrain panning
-        const maxPanX = 0;
-        const minPanX = -(this.canvasSize.width - this.canvas.width);
-        const maxPanY = 0;
-        const minPanY = -(this.canvasSize.height - this.canvas.height);
-        
-        vpt[4] = Math.max(minPanX, Math.min(maxPanX, vpt[4]));
-        vpt[5] = Math.max(minPanY, Math.min(maxPanY, vpt[5]));
-        
-        this.canvas.setViewportTransform(vpt);
-        this.canvas.requestRenderAll();
-        this.lastPanPoint = { x: pos.clientX, y: pos.clientY };
-        
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    };
-
-    const handlePanEnd = (e) => {
-      if (this.isPanning) {
-        isPanningActive = false;
-        this.canvas.defaultCursor = 'grab';
-        this.lastPanPoint = null;
-        return false;
-      }
-    };
-
     this.canvas.on('mouse:down', (options) => {
-      handlePanStart(options.e);
-      
-      if (this.isPanning) return;
-
       if (this.currentTool === 'pencil' || this.currentTool === 'eraser') {
         isDrawingPath = true;
         const pointer = this.canvas.getPointer(options.e);
@@ -488,10 +401,6 @@ class Whiteboard {
     });
 
     this.canvas.on('mouse:move', (options) => {
-      handlePanMove(options.e);
-      
-      if (this.isPanning) return;
-
       // Send continuous drawing data for pencil/eraser
       if (isDrawingPath && (this.currentTool === 'pencil' || this.currentTool === 'eraser')) {
         const pointer = this.canvas.getPointer(options.e);
@@ -531,10 +440,6 @@ class Whiteboard {
     });
 
     this.canvas.on('mouse:up', () => {
-      handlePanEnd();
-      
-      if (this.isPanning) return false;
-
       // End continuous drawing
       if (isDrawingPath && (this.currentTool === 'pencil' || this.currentTool === 'eraser')) {
         this.sendContinuousDrawing('end', {});
@@ -546,13 +451,6 @@ class Whiteboard {
       
       this.notifyChange();
     });
-
-    // Add touch event listeners for better tablet support
-    const canvasElement = this.canvas.getElement();
-    
-    canvasElement.addEventListener('touchstart', handlePanStart, { passive: false });
-    canvasElement.addEventListener('touchmove', handlePanMove, { passive: false });
-    canvasElement.addEventListener('touchend', handlePanEnd, { passive: false });
 
     // Handle drawing completion
     this.canvas.on('path:created', () => {

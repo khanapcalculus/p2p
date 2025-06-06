@@ -106,10 +106,37 @@ class PeerConnection {
     };
     
     this.peer.ontrack = (event) => {
-      console.log('Remote track received:', event);
+      console.log('Remote track received:', event.streams[0]);
+      console.log('Track details:', event.track);
+      console.log('Track kind:', event.track.kind);
+      console.log('Track enabled:', event.track.enabled);
+      console.log('Track ready state:', event.track.readyState);
+      
       this.remoteStream = event.streams[0];
       this.callbacks.onRemoteStreamReceived(this.remoteStream);
+      this.updateStatus('Receiving remote audio/video', 'success');
     };
+    
+    // Add track event listener for debugging
+    this.peer.addEventListener('track', (event) => {
+      console.log('Track event fired:', event);
+    });
+    
+    // Monitor senders for debugging
+    this.peer.addEventListener('signalingstatechange', () => {
+      console.log('Signaling state:', this.peer.signalingState);
+      if (this.peer.signalingState === 'stable') {
+        const senders = this.peer.getSenders();
+        console.log('Active senders:', senders);
+        senders.forEach((sender, index) => {
+          if (sender.track) {
+            console.log(`Sender ${index}: ${sender.track.kind} track`, sender.track);
+          } else {
+            console.log(`Sender ${index}: No track`);
+          }
+        });
+      }
+    });
     
     this.peer.onconnectionstatechange = () => {
       console.log(`Connection state changed to: ${this.peer.connectionState}`);
@@ -117,11 +144,13 @@ class PeerConnection {
       if (this.peer.connectionState === 'connected') {
         console.log('Peer connection established successfully!');
         this.callbacks.onConnectionEstablished();
+        this.updateStatus('Connected to peer', 'success');
       } else if (this.peer.connectionState === 'disconnected' || 
                 this.peer.connectionState === 'failed' || 
                 this.peer.connectionState === 'closed') {
         console.log('Peer connection failed or closed');
         this.callbacks.onConnectionClosed();
+        this.updateStatus('Peer connection lost', 'error');
       }
     };
 
@@ -135,9 +164,9 @@ class PeerConnection {
     this.peer.oniceconnectionstatechange = () => {
       console.log(`ICE connection state: ${this.peer.iceConnectionState}`);
       if (this.peer.iceConnectionState === 'connected' || this.peer.iceConnectionState === 'completed') {
-        this.updateStatus('P2P connection established');
+        this.updateStatus('P2P connection established', 'success');
       } else if (this.peer.iceConnectionState === 'failed') {
-        this.updateStatus('P2P connection failed - trying to reconnect...');
+        this.updateStatus('P2P connection failed - trying to reconnect...', 'warning');
         // Try to restart ICE
         this.peer.restartIce();
       }
@@ -146,6 +175,9 @@ class PeerConnection {
     this.peer.onicegatheringstatechange = () => {
       console.log(`ICE gathering state: ${this.peer.iceGatheringState}`);
     };
+    
+    // Add local stream tracks BEFORE creating data channel
+    this.addLocalStreamTracks();
     
     // Set up data channel
     if (this.isInitiator) {
@@ -164,11 +196,50 @@ class PeerConnection {
         this.setupDataChannel();
       };
     }
-    
-    // Add local stream if available
+  }
+
+  // Separate method to add local stream tracks
+  addLocalStreamTracks() {
     if (this.localStream) {
+      console.log('Adding local stream tracks to peer connection:', this.localStream);
+      
+      // Add all tracks from local stream
       this.localStream.getTracks().forEach(track => {
-        this.peer.addTrack(track, this.localStream);
+        console.log(`Adding ${track.kind} track:`, track);
+        const sender = this.peer.addTrack(track, this.localStream);
+        console.log('Track added, sender:', sender);
+      });
+      
+      console.log('All local tracks added to peer connection');
+      this.updateStatus('Local media added to connection', 'success');
+    } else {
+      console.log('No local stream available to add to peer connection');
+      this.updateStatus('No local media to share', 'warning');
+    }
+  }
+
+  // Method to ensure media is properly connected after getting stream
+  ensureMediaConnection() {
+    if (this.peer && this.localStream) {
+      // Check if tracks are already added
+      const senders = this.peer.getSenders();
+      const hasVideoSender = senders.some(sender => sender.track && sender.track.kind === 'video');
+      const hasAudioSender = senders.some(sender => sender.track && sender.track.kind === 'audio');
+      
+      console.log('Current senders:', senders);
+      console.log('Has video sender:', hasVideoSender);
+      console.log('Has audio sender:', hasAudioSender);
+      
+      // Add missing tracks
+      this.localStream.getTracks().forEach(track => {
+        const existingSender = senders.find(sender => 
+          sender.track && sender.track.kind === track.kind
+        );
+        
+        if (!existingSender) {
+          console.log(`Adding missing ${track.kind} track:`, track);
+          this.peer.addTrack(track, this.localStream);
+        }
       });
     }
   }
@@ -200,24 +271,29 @@ class PeerConnection {
 
   // Connect to peers in the room
   async connectToPeers(users) {
-    this.remoteUserId = users[0].socketId;
-    this.isInitiator = true; // Set as initiator BEFORE initializing connection
-    this.initializePeerConnection();
-    
-    // Create and send offer
-    try {
-      const offer = await this.peer.createOffer();
-      await this.peer.setLocalDescription(offer);
+    if (users.length > 0) {
+      this.remoteUserId = users[0]; // Connect to first user
+      console.log('Connecting to peer:', this.remoteUserId);
       
-      this.socket.emit('offer', {
-        target: this.remoteUserId,
-        sdp: this.peer.localDescription
-      });
+      // Initialize peer connection
+      this.initializePeerConnection();
       
-      this.updateStatus('Offer sent to remote peer');
-    } catch (error) {
-      console.error('Error creating offer:', error);
-      this.updateStatus('Error creating offer');
+      // Create and send offer
+      try {
+        const offer = await this.peer.createOffer();
+        await this.peer.setLocalDescription(offer);
+        
+        console.log('Sending offer to:', this.remoteUserId);
+        this.socket.emit('offer', {
+          target: this.remoteUserId,
+          sdp: offer
+        });
+        
+        this.updateStatus('Connecting to peer...', 'info');
+      } catch (error) {
+        console.error('Error creating offer:', error);
+        this.updateStatus('Error creating connection offer', 'error');
+      }
     }
   }
 
@@ -314,6 +390,12 @@ class PeerConnection {
         });
         console.log('Successfully obtained video and audio stream');
         this.updateStatus('Camera and microphone access granted', 'success');
+        
+        // Ensure tracks are added to peer connection if it exists
+        if (this.peer) {
+          this.ensureMediaConnection();
+        }
+        
         return this.localStream;
       } catch (error) {
         console.warn('Failed to get both video and audio:', error.name, error.message);
@@ -338,6 +420,12 @@ class PeerConnection {
           });
           console.log('Video-only stream obtained');
           this.updateStatus('Video access granted (no audio)');
+          
+          // Ensure tracks are added to peer connection if it exists
+          if (this.peer) {
+            this.ensureMediaConnection();
+          }
+          
           return this.localStream;
         } catch (videoError) {
           console.warn('Failed to get video stream:', videoError.name, videoError.message);
@@ -357,6 +445,12 @@ class PeerConnection {
           });
           console.log('Audio-only stream obtained');
           this.updateStatus('Audio access granted (no video)');
+          
+          // Ensure tracks are added to peer connection if it exists
+          if (this.peer) {
+            this.ensureMediaConnection();
+          }
+          
           return this.localStream;
         } catch (audioError) {
           console.warn('Failed to get audio stream:', audioError.name, audioError.message);
