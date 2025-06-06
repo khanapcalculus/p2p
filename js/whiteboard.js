@@ -5,44 +5,44 @@ class Whiteboard {
     this.currentTool = 'pencil';
     this.color = '#000000';
     this.brushSize = 3;
-    this.isPanning = false;
-    this.lastPanPoint = { x: 0, y: 0 };
+    this.pages = [];
+    this.currentPageIndex = 0;
     this.canvasSize = {
-      width: 3970,  // 5 A4 pages wide (794 * 5)
-      height: 2246  // 2 A4 pages tall (1123 * 2)
+      width: 1000,
+      height: 2000  // A4-like ratio but manageable size
     };
     this.initialize();
   }
 
   initialize() {
-    // Set large canvas size
-    this.setupLargeCanvas();
+    // Set manageable canvas size
+    this.setupCanvas();
+    
+    // Create first page
+    this.addNewPage();
     
     // Initialize drawing mode
     this.setTool('pencil');
 
     // Setup event listeners for canvas events
     this.setupCanvasEvents();
-    
-    // Add A4 page grid
-    this.addPageGrid();
   }
 
-  setupLargeCanvas() {
-    // Set canvas to large size
+  setupCanvas() {
+    // Set canvas to manageable size
     this.canvas.setWidth(this.canvasSize.width);
     this.canvas.setHeight(this.canvasSize.height);
     
-    // Set viewport to show portion of canvas
+    // Set viewport container
     const container = document.getElementById('whiteboard').parentElement;
-    const viewportWidth = Math.min(container.clientWidth, 1000);
-    const viewportHeight = 600;
+    const viewportWidth = Math.min(container.clientWidth, this.canvasSize.width);
+    const viewportHeight = Math.min(600, this.canvasSize.height);
     
     // Create viewport container
     const canvasContainer = document.getElementById('whiteboard').parentElement;
     canvasContainer.style.width = `${viewportWidth}px`;
     canvasContainer.style.height = `${viewportHeight}px`;
-    canvasContainer.style.overflow = 'hidden';
+    canvasContainer.style.overflow = 'auto'; // Allow scrolling within page
     canvasContainer.style.position = 'relative';
     
     // Set canvas element size for viewport
@@ -51,57 +51,134 @@ class Whiteboard {
       height: viewportHeight
     }, { cssOnly: true });
     
-    // Initialize viewport
-    this.canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-    
     this.canvas.renderAll();
   }
 
-  addPageGrid() {
-    // Add A4 page boundaries as light gray lines
-    const a4Width = 794;
-    const a4Height = 1123;
+  addNewPage() {
+    const pageNumber = this.pages.length + 1;
+    const newPage = {
+      id: `page-${pageNumber}`,
+      number: pageNumber,
+      data: null,
+      title: `Page ${pageNumber}`
+    };
     
-    // Vertical lines (5 pages wide)
-    for (let i = 1; i < 5; i++) {
-      const line = new fabric.Line([i * a4Width, 0, i * a4Width, this.canvasSize.height], {
-        stroke: '#e0e0e0',
-        strokeWidth: 1,
-        selectable: false,
-        evented: false,
-        name: 'grid-line'
+    this.pages.push(newPage);
+    this.currentPageIndex = this.pages.length - 1;
+    this.loadPage(this.currentPageIndex);
+    
+    // Notify about page structure change
+    if (typeof this.onPagesChange === 'function') {
+      this.onPagesChange(this.getPageStructure());
+    }
+    
+    return newPage;
+  }
+
+  deletePage(pageIndex) {
+    if (this.pages.length <= 1) {
+      alert('Cannot delete the last page!');
+      return false;
+    }
+    
+    if (pageIndex < 0 || pageIndex >= this.pages.length) {
+      return false;
+    }
+    
+    // Save current page before deleting
+    this.saveCurrentPage();
+    
+    // Remove page
+    this.pages.splice(pageIndex, 1);
+    
+    // Renumber pages
+    this.pages.forEach((page, index) => {
+      page.number = index + 1;
+      page.title = `Page ${index + 1}`;
+    });
+    
+    // Adjust current page index
+    if (this.currentPageIndex >= this.pages.length) {
+      this.currentPageIndex = this.pages.length - 1;
+    } else if (this.currentPageIndex > pageIndex) {
+      this.currentPageIndex--;
+    }
+    
+    // Load appropriate page
+    this.loadPage(this.currentPageIndex);
+    
+    // Notify about page structure change
+    if (typeof this.onPagesChange === 'function') {
+      this.onPagesChange(this.getPageStructure());
+    }
+    
+    return true;
+  }
+
+  goToPage(pageIndex) {
+    if (pageIndex < 0 || pageIndex >= this.pages.length) {
+      return false;
+    }
+    
+    // Save current page
+    this.saveCurrentPage();
+    
+    // Load new page
+    this.currentPageIndex = pageIndex;
+    this.loadPage(pageIndex);
+    
+    return true;
+  }
+
+  saveCurrentPage() {
+    if (this.currentPageIndex >= 0 && this.currentPageIndex < this.pages.length) {
+      this.pages[this.currentPageIndex].data = JSON.stringify(this.canvas);
+    }
+  }
+
+  loadPage(pageIndex) {
+    if (pageIndex < 0 || pageIndex >= this.pages.length) {
+      return;
+    }
+    
+    const page = this.pages[pageIndex];
+    
+    if (page.data) {
+      // Load existing page data
+      this.canvas.loadFromJSON(page.data, () => {
+        this.canvas.renderAll();
       });
-      this.canvas.add(line);
+    } else {
+      // Clear canvas for new page
+      this.canvas.clear();
     }
     
-    // Horizontal lines (2 pages tall)
-    for (let i = 1; i < 2; i++) {
-      const line = new fabric.Line([0, i * a4Height, this.canvasSize.width, i * a4Height], {
-        stroke: '#e0e0e0',
-        strokeWidth: 1,
-        selectable: false,
-        evented: false,
-        name: 'grid-line'
-      });
-      this.canvas.add(line);
-    }
+    // Update page display
+    this.updatePageDisplay();
     
-    // Add page numbers
-    for (let row = 0; row < 2; row++) {
-      for (let col = 0; col < 5; col++) {
-        const pageNum = row * 5 + col + 1;
-        const text = new fabric.Text(`Page ${pageNum}`, {
-          left: col * a4Width + 20,
-          top: row * a4Height + 20,
-          fontSize: 12,
-          fill: '#ccc',
-          selectable: false,
-          evented: false,
-          name: 'page-number'
-        });
-        this.canvas.add(text);
-      }
+    // Emit page change
+    if (typeof this.onPageChange === 'function') {
+      this.onPageChange(pageIndex, page);
     }
+  }
+
+  updatePageDisplay() {
+    const pageDisplay = document.getElementById('current-page-display');
+    if (pageDisplay && this.pages[this.currentPageIndex]) {
+      pageDisplay.textContent = `Page ${this.currentPageIndex + 1} of ${this.pages.length}`;
+    }
+  }
+
+  getPageStructure() {
+    return {
+      pages: this.pages.map(page => ({
+        id: page.id,
+        number: page.number,
+        title: page.title
+      })),
+      currentPageIndex: this.currentPageIndex,
+      totalPages: this.pages.length
+    };
   }
 
   setTool(tool) {
@@ -109,7 +186,6 @@ class Whiteboard {
 
     // Reset canvas mode
     this.canvas.isDrawingMode = false;
-    this.isPanning = false;
 
     switch (tool) {
       case 'pencil':
@@ -122,11 +198,6 @@ class Whiteboard {
         this.canvas.freeDrawingBrush.color = '#ffffff';
         this.canvas.freeDrawingBrush.width = this.brushSize * 2;
         break;
-      case 'pan':
-        this.isPanning = true;
-        this.canvas.defaultCursor = 'grab';
-        break;
-      // Other tools will be handled by canvas events
     }
   }
 
@@ -149,12 +220,6 @@ class Whiteboard {
     let shape;
 
     this.canvas.on('mouse:down', (options) => {
-      if (this.isPanning) {
-        this.canvas.defaultCursor = 'grabbing';
-        this.lastPanPoint = { x: options.e.clientX, y: options.e.clientY };
-        return;
-      }
-      
       if (this.currentTool === 'pencil' || this.currentTool === 'eraser') return;
 
       this.isDrawing = true;
@@ -217,19 +282,6 @@ class Whiteboard {
     });
 
     this.canvas.on('mouse:move', (options) => {
-      if (this.isPanning && this.lastPanPoint) {
-        const deltaX = options.e.clientX - this.lastPanPoint.x;
-        const deltaY = options.e.clientY - this.lastPanPoint.y;
-        
-        const vpt = this.canvas.viewportTransform;
-        vpt[4] += deltaX;
-        vpt[5] += deltaY;
-        
-        this.canvas.setViewportTransform(vpt);
-        this.lastPanPoint = { x: options.e.clientX, y: options.e.clientY };
-        return;
-      }
-      
       if (!this.isDrawing || this.currentTool === 'text') return;
 
       const pointer = this.canvas.getPointer(options.e);
@@ -268,76 +320,87 @@ class Whiteboard {
     });
 
     this.canvas.on('mouse:up', () => {
-      if (this.isPanning) {
-        this.canvas.defaultCursor = 'grab';
-        this.lastPanPoint = null;
-        return;
-      }
-      
       this.isDrawing = false;
       this.canvas.renderAll();
       
-      // Emit canvas data to peers
+      // Auto-save current page and emit changes
+      this.saveCurrentPage();
       if (typeof this.onCanvasChange === 'function') {
-        this.onCanvasChange(JSON.stringify(this.canvas));
+        this.onCanvasChange({
+          pageIndex: this.currentPageIndex,
+          pageData: JSON.stringify(this.canvas),
+          pageStructure: this.getPageStructure()
+        });
       }
     });
 
     // Handle object modifications
     this.canvas.on('object:modified', () => {
+      this.saveCurrentPage();
       if (typeof this.onCanvasChange === 'function') {
-        this.onCanvasChange(JSON.stringify(this.canvas));
+        this.onCanvasChange({
+          pageIndex: this.currentPageIndex,
+          pageData: JSON.stringify(this.canvas),
+          pageStructure: this.getPageStructure()
+        });
       }
     });
-
-    // Handle mouse wheel for zoom
-    this.canvas.on('mouse:wheel', (opt) => {
-      const delta = opt.e.deltaY;
-      let zoom = this.canvas.getZoom();
-      zoom *= 0.999 ** delta;
-      if (zoom > 20) zoom = 20;
-      if (zoom < 0.1) zoom = 0.1;
-      this.canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
-      opt.e.preventDefault();
-      opt.e.stopPropagation();
-    });
   }
 
-  // Add method to center viewport on a specific page
-  goToPage(pageNumber) {
-    if (pageNumber < 1 || pageNumber > 10) return;
-    
-    const col = (pageNumber - 1) % 5;
-    const row = Math.floor((pageNumber - 1) / 5);
-    
-    const x = col * 794 + 397; // Center of page horizontally
-    const y = row * 1123 + 561; // Center of page vertically
-    
-    const vpt = this.canvas.viewportTransform;
-    vpt[4] = -x + this.canvas.width / 2;
-    vpt[5] = -y + this.canvas.height / 2;
-    
-    this.canvas.setViewportTransform(vpt);
-    this.canvas.renderAll();
-  }
-
-  clearCanvas() {
+  clearCurrentPage() {
     this.canvas.clear();
-    this.addPageGrid(); // Re-add the grid after clearing
+    this.saveCurrentPage();
     if (typeof this.onCanvasChange === 'function') {
-      this.onCanvasChange(JSON.stringify(this.canvas));
+      this.onCanvasChange({
+        pageIndex: this.currentPageIndex,
+        pageData: JSON.stringify(this.canvas),
+        pageStructure: this.getPageStructure()
+      });
     }
   }
 
-  // Method to update canvas from received data
-  updateFromJSON(jsonData) {
-    this.canvas.loadFromJSON(jsonData, () => {
-      this.canvas.renderAll();
-    });
+  // Method to update from received data
+  updateFromData(data) {
+    if (data.pageIndex !== undefined && data.pageData) {
+      // Update specific page
+      if (data.pageIndex >= 0 && data.pageIndex < this.pages.length) {
+        this.pages[data.pageIndex].data = data.pageData;
+        
+        // If it's the current page, reload it
+        if (data.pageIndex === this.currentPageIndex) {
+          this.canvas.loadFromJSON(data.pageData, () => {
+            this.canvas.renderAll();
+          });
+        }
+      }
+    }
+    
+    // Update page structure if provided
+    if (data.pageStructure) {
+      this.syncPageStructure(data.pageStructure);
+    }
   }
 
-  // Set callback for canvas changes
+  syncPageStructure(remoteStructure) {
+    // Add missing pages
+    while (this.pages.length < remoteStructure.totalPages) {
+      this.addNewPage();
+    }
+    
+    // Update page display
+    this.updatePageDisplay();
+  }
+
+  // Set callbacks
   setChangeCallback(callback) {
     this.onCanvasChange = callback;
+  }
+
+  setPagesChangeCallback(callback) {
+    this.onPagesChange = callback;
+  }
+
+  setPageChangeCallback(callback) {
+    this.onPageChange = callback;
   }
 }

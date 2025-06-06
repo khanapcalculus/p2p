@@ -19,7 +19,29 @@ document.addEventListener('DOMContentLoaded', () => {
       whiteboard.setBrushSize(size);
     },
     onClearCanvas: () => {
-      whiteboard.clearCanvas();
+      whiteboard.clearCurrentPage();
+    },
+    onAddPage: () => {
+      const newPage = whiteboard.addNewPage();
+      ui.updatePageDisplay(whiteboard.currentPageIndex + 1, whiteboard.pages.length);
+    },
+    onDeletePage: () => {
+      if (confirm('Are you sure you want to delete this page?')) {
+        const success = whiteboard.deletePage(whiteboard.currentPageIndex);
+        if (success) {
+          ui.updatePageDisplay(whiteboard.currentPageIndex + 1, whiteboard.pages.length);
+        }
+      }
+    },
+    onPrevPage: () => {
+      if (whiteboard.goToPage(whiteboard.currentPageIndex - 1)) {
+        ui.updatePageDisplay(whiteboard.currentPageIndex + 1, whiteboard.pages.length);
+      }
+    },
+    onNextPage: () => {
+      if (whiteboard.goToPage(whiteboard.currentPageIndex + 1)) {
+        ui.updatePageDisplay(whiteboard.currentPageIndex + 1, whiteboard.pages.length);
+      }
     },
     onToggleVideo: () => {
       return peerConnection.toggleVideo();
@@ -32,9 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (screenStream) {
         ui.setLocalStream(screenStream);
       }
-    },
-    onGoToPage: (pageNumber) => {
-      whiteboard.goToPage(pageNumber);
     },
     onCreateRoom: async (roomId, userName, role) => {
       // Initialize media with graceful fallback for tablets
@@ -75,7 +94,16 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     onDataReceived: (data) => {
       // Update whiteboard with received data
-      whiteboard.updateFromJSON(data);
+      const parsedData = JSON.parse(data);
+      whiteboard.updateFromData(parsedData);
+      
+      // Update UI page display
+      if (parsedData.pageStructure) {
+        ui.updatePageDisplay(
+          whiteboard.currentPageIndex + 1, 
+          whiteboard.pages.length
+        );
+      }
     },
     onRemoteStreamReceived: (stream) => {
       ui.setRemoteStream(stream);
@@ -85,8 +113,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Set up whiteboard callback for sending data
-  whiteboard.setChangeCallback((canvasData) => {
-    peerConnection.sendData(canvasData);
+  // Set up whiteboard callbacks
+  whiteboard.setChangeCallback((data) => {
+    // Send page data to peer
+    peerConnection.sendData(JSON.stringify(data));
+  });
+  
+  whiteboard.setPageChangeCallback((pageIndex, page) => {
+    // Update UI when page changes
+    ui.updatePageDisplay(pageIndex + 1, whiteboard.pages.length);
+  });
+  
+  whiteboard.setPagesChangeCallback((pageStructure) => {
+    // Update UI when pages are added/removed
+    ui.updatePageDisplay(
+      whiteboard.currentPageIndex + 1, 
+      whiteboard.pages.length
+    );
   });
 });

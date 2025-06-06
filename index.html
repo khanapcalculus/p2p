@@ -36,8 +36,7 @@
           <button id="circle-tool" class="tool">Circle</button>
           <button id="text-tool" class="tool">Text</button>
           <button id="eraser-tool" class="tool">Eraser</button>
-          <button id="pan-tool" class="tool">Pan</button>
-          <button id="clear-canvas">Clear All</button>
+          <button id="clear-canvas">Clear Page</button>
           <div class="color-picker">
             <input type="color" id="color-selector" value="#000000">
           </div>
@@ -45,8 +44,16 @@
             <input type="range" id="brush-size" min="1" max="20" value="3">
           </div>
         </div>
-        <div class="page-navigation">
-          <div id="page-nav"></div>
+        <div class="page-controls">
+          <div class="page-info">
+            <span id="current-page-display">Page 1 of 1</span>
+          </div>
+          <div class="page-buttons">
+            <button id="prev-page-btn" disabled>← Previous</button>
+            <button id="next-page-btn" disabled>Next →</button>
+            <button id="add-page-btn">+ Add Page</button>
+            <button id="delete-page-btn" disabled>🗑 Delete Page</button>
+          </div>
         </div>
       </div>
       

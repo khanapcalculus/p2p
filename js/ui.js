@@ -18,11 +18,15 @@ class UI {
       circleTool: document.getElementById('circle-tool'),
       textTool: document.getElementById('text-tool'),
       eraserTool: document.getElementById('eraser-tool'),
-      panTool: document.getElementById('pan-tool'),
       clearCanvas: document.getElementById('clear-canvas'),
       colorSelector: document.getElementById('color-selector'),
       brushSize: document.getElementById('brush-size'),
-      pageNav: document.getElementById('page-nav')
+      pageControls: document.getElementById('page-controls'),
+      currentPageDisplay: document.getElementById('current-page-display'),
+      addPageBtn: document.getElementById('add-page-btn'),
+      deletePageBtn: document.getElementById('delete-page-btn'),
+      prevPageBtn: document.getElementById('prev-page-btn'),
+      nextPageBtn: document.getElementById('next-page-btn')
     };
     
     this.toolButtons = [
@@ -31,8 +35,7 @@ class UI {
       this.elements.rectTool,
       this.elements.circleTool,
       this.elements.textTool,
-      this.elements.eraserTool,
-      this.elements.panTool
+      this.elements.eraserTool
     ];
     
     this.initialize();
@@ -46,32 +49,6 @@ class UI {
     
     // Set up event listeners for UI controls
     this.setupEventListeners();
-    
-    // Create page navigation
-    this.createPageNavigation();
-  }
-
-  createPageNavigation() {
-    const pageNavContainer = this.elements.pageNav;
-    if (!pageNavContainer) return;
-    
-    // Clear existing content
-    pageNavContainer.innerHTML = '<span style="margin-right: 10px; font-weight: bold;">Go to Page:</span>';
-    
-    // Create page buttons
-    for (let i = 1; i <= 10; i++) {
-      const button = document.createElement('button');
-      button.textContent = i;
-      button.style.margin = '2px';
-      button.style.padding = '4px 8px';
-      button.style.fontSize = '12px';
-      button.addEventListener('click', () => {
-        if (this.onGoToPage) {
-          this.onGoToPage(i);
-        }
-      });
-      pageNavContainer.appendChild(button);
-    }
   }
 
   setupEventListeners() {
@@ -102,6 +79,39 @@ class UI {
         this.onClearCanvas();
       }
     });
+    
+    // Page controls
+    if (this.elements.addPageBtn) {
+      this.elements.addPageBtn.addEventListener('click', () => {
+        if (this.onAddPage) {
+          this.onAddPage();
+        }
+      });
+    }
+    
+    if (this.elements.deletePageBtn) {
+      this.elements.deletePageBtn.addEventListener('click', () => {
+        if (this.onDeletePage) {
+          this.onDeletePage();
+        }
+      });
+    }
+    
+    if (this.elements.prevPageBtn) {
+      this.elements.prevPageBtn.addEventListener('click', () => {
+        if (this.onPrevPage) {
+          this.onPrevPage();
+        }
+      });
+    }
+    
+    if (this.elements.nextPageBtn) {
+      this.elements.nextPageBtn.addEventListener('click', () => {
+        if (this.onNextPage) {
+          this.onNextPage();
+        }
+      });
+    }
     
     // Video controls
     this.elements.toggleVideoBtn.addEventListener('click', () => {
@@ -158,6 +168,25 @@ class UI {
     this.elements.statusMessage.textContent = message;
   }
 
+  updatePageDisplay(currentPage, totalPages) {
+    if (this.elements.currentPageDisplay) {
+      this.elements.currentPageDisplay.textContent = `Page ${currentPage} of ${totalPages}`;
+    }
+    
+    // Update button states
+    if (this.elements.prevPageBtn) {
+      this.elements.prevPageBtn.disabled = currentPage <= 1;
+    }
+    
+    if (this.elements.nextPageBtn) {
+      this.elements.nextPageBtn.disabled = currentPage >= totalPages;
+    }
+    
+    if (this.elements.deletePageBtn) {
+      this.elements.deletePageBtn.disabled = totalPages <= 1;
+    }
+  }
+
   setLocalStream(stream) {
     this.elements.localVideo.srcObject = stream;
   }
@@ -182,7 +211,10 @@ class UI {
       onShareScreen,
       onCreateRoom,
       onJoinRoom,
-      onGoToPage
+      onAddPage,
+      onDeletePage,
+      onPrevPage,
+      onNextPage
     } = callbacks;
     
     this.onToolChange = onToolChange;
@@ -194,6 +226,9 @@ class UI {
     this.onShareScreen = onShareScreen;
     this.onCreateRoom = onCreateRoom;
     this.onJoinRoom = onJoinRoom;
-    this.onGoToPage = onGoToPage;
+    this.onAddPage = onAddPage;
+    this.onDeletePage = onDeletePage;
+    this.onPrevPage = onPrevPage;
+    this.onNextPage = onNextPage;
   }
 }
