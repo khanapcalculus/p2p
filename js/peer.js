@@ -26,9 +26,30 @@ class PeerConnection {
     });
     
     this.socket.on('users-in-room', (users) => {
+      console.log('Received users in room:', users);
+      console.log('My user ID:', this.userId);
+      console.log('Current initiator status:', this.isInitiator);
+      
       if (users.length > 0) {
-        // There are other users in the room, connect to them
-        this.connectToPeers(users);
+        // Filter out self if somehow included
+        const otherUsers = users.filter(user => {
+          const userSocketId = typeof user === 'object' ? user.socketId : user;
+          return userSocketId !== this.socket.id;
+        });
+        
+        console.log('Other users after filtering:', otherUsers);
+        
+        if (otherUsers.length > 0) {
+          // If we were already waiting (isInitiator = true), keep initiator status
+          // If we're joining and others exist, we're not the initiator
+          if (this.isInitiator === undefined) {
+            this.isInitiator = false; // Second person joining is not initiator
+          }
+          this.connectToPeers(otherUsers);
+        } else {
+          this.isInitiator = true;
+          this.updateStatus('Waiting for someone to join...');
+        }
       } else {
         this.isInitiator = true;
         this.updateStatus('Waiting for someone to join...');
@@ -272,8 +293,17 @@ class PeerConnection {
   // Connect to peers in the room
   async connectToPeers(users) {
     if (users.length > 0) {
-      this.remoteUserId = users[0]; // Connect to first user
-      console.log('Connecting to peer:', this.remoteUserId);
+      // Handle both old string format and new object format
+      const firstUser = users[0];
+      if (typeof firstUser === 'object' && firstUser.socketId) {
+        this.remoteUserId = firstUser.socketId; // Use socketId for signaling
+        this.remotePeerInfo = firstUser; // Store full peer info
+      } else {
+        this.remoteUserId = firstUser; // Fallback to old format
+        this.remotePeerInfo = { id: firstUser, socketId: firstUser };
+      }
+      
+      console.log('Connecting to peer:', this.remotePeerInfo);
       
       // Initialize peer connection
       this.initializePeerConnection();
