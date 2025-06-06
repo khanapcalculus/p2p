@@ -35,33 +35,46 @@ class Whiteboard {
   }
 
   setupCanvas() {
-    // Calculate exact canvas dimensions
-    const toolsWidth = 120; // Tools panel width
-    const cameraWidth = 200; // Camera panel width
-    const headerHeight = 60; // Approximate header height
-    const bottomHeight = 60; // Approximate bottom panel height
+    // Calculate exact canvas dimensions with floating panels
+    const headerHeight = 60; // Header height
+    const bottomHeight = 60; // Bottom panel height
     
-    // Canvas container dimensions (available space)
-    const containerWidth = window.innerWidth - toolsWidth - cameraWidth;
+    // Full workspace dimensions (floating panels don't take space)
+    const containerWidth = window.innerWidth;
     const containerHeight = window.innerHeight - headerHeight - bottomHeight;
     
-    // Canvas dimensions (double height for scrolling)
+    // Canvas dimensions (height is double the width for more vertical workspace)
     const canvasWidth = containerWidth;
-    const canvasHeight = containerHeight * 2; // Double the window height
+    const canvasHeight = canvasWidth * 2; // Height is double the width
     
     console.log('Canvas dimensions:', canvasWidth, 'x', canvasHeight);
     console.log('Container dimensions:', containerWidth, 'x', containerHeight);
     
-    // Set the actual canvas size
+    // Get canvas container and set exact dimensions
+    const canvasContainer = document.getElementById('whiteboard').parentElement;
+    
+    // Remove all margins and padding, set exact container size
+    canvasContainer.style.width = `${containerWidth}px`;
+    canvasContainer.style.height = `${containerHeight}px`;
+    canvasContainer.style.overflow = 'auto'; // Enable scrollbars always
+    canvasContainer.style.overflowX = 'auto'; // Horizontal scrollbar
+    canvasContainer.style.overflowY = 'auto'; // Vertical scrollbar
+    canvasContainer.style.position = 'relative';
+    canvasContainer.style.margin = '0';
+    canvasContainer.style.padding = '0';
+    canvasContainer.style.border = 'none';
+    canvasContainer.style.webkitOverflowScrolling = 'touch'; // Smooth scrolling on iOS
+    
+    // Set canvas dimensions
     this.canvas.setWidth(canvasWidth);
     this.canvas.setHeight(canvasHeight);
     
-    // Update canvas container for exact fit with scrollbars
-    const canvasContainer = document.getElementById('whiteboard').parentElement;
-    canvasContainer.style.width = `${containerWidth}px`;
-    canvasContainer.style.height = `${containerHeight}px`;
-    canvasContainer.style.overflow = 'auto'; // Enable scrollbars
-    canvasContainer.style.position = 'relative';
+    // Set canvas element style to remove any margins/padding
+    const canvasElement = document.getElementById('whiteboard');
+    canvasElement.style.margin = '0';
+    canvasElement.style.padding = '0';
+    canvasElement.style.border = 'none';
+    canvasElement.style.display = 'block';
     
     // Set canvas element to exact size (no CSS scaling)
     this.canvas.setDimensions({
@@ -73,7 +86,7 @@ class Whiteboard {
     this.canvas.renderOnAddRemove = false;
     this.canvas.skipOffscreen = true;
     
-    // Disable fabric.js touch handling for scrolling
+    // Enable touch scrolling for tablets
     this.canvas.allowTouchScrolling = true;
     
     this.canvas.renderAll();

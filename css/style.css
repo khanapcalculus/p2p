@@ -186,18 +186,24 @@ button:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   background-color: #e9ecef;
+  margin: 0;
   padding: 0;
+  border: none;
 }
 
 .whiteboard-container {
   background-color: white;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   touch-action: none;
-  border: 1px solid #ddd;
+  border: none;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
 #whiteboard {
@@ -210,29 +216,41 @@ button:hover {
   -moz-user-select: none;
   -ms-user-select: none;
   display: block;
+  margin: 0;
+  padding: 0;
 }
 
-/* Custom scrollbar styling */
+/* Custom scrollbar styling for desktop */
 .whiteboard-container::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
 }
 
 .whiteboard-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #f8f9fa;
+  border-radius: 8px;
 }
 
 .whiteboard-container::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 6px;
+  background: #6c757d;
+  border-radius: 8px;
+  border: 2px solid #f8f9fa;
 }
 
 .whiteboard-container::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: #495057;
 }
 
 .whiteboard-container::-webkit-scrollbar-corner {
-  background: #f1f1f1;
+  background: #f8f9fa;
+}
+
+/* Ensure scrollbars are always visible */
+.whiteboard-container {
+  overflow: auto !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: auto; /* Firefox */
+  scrollbar-color: #6c757d #f8f9fa; /* Firefox */
 }
 
 /* Floating camera section on right side */
@@ -565,8 +583,11 @@ video {
   
   .whiteboard-container {
     height: 100%;
-    overflow: auto;
+    overflow: auto !important;
     -webkit-overflow-scrolling: touch;
+    /* Enhanced touch scrolling */
+    overscroll-behavior: contain;
+    touch-action: pan-x pan-y;
   }
   
   .camera-section {
@@ -623,15 +644,30 @@ video {
     min-height: 44px; /* Touch target size */
   }
   
-  /* Adjust scrollbar for mobile */
+  /* Enhanced scrollbar for tablet/mobile */
   .whiteboard-container::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
+    width: 18px;
+    height: 18px;
+  }
+
+  .whiteboard-container::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 9px;
   }
   
   .whiteboard-container::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 6px;
+    background: #495057;
+    border-radius: 9px;
+    border: 3px solid #f8f9fa;
+    min-height: 40px; /* Minimum thumb size for touch */
+  }
+
+  .whiteboard-container::-webkit-scrollbar-thumb:active {
+    background: #343a40;
+  }
+
+  .whiteboard-container::-webkit-scrollbar-corner {
+    background: #f8f9fa;
   }
   
   /* Prevent zoom on inputs */
