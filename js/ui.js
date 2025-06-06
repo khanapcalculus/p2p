@@ -141,14 +141,14 @@ class UI {
     this.elements.toggleVideoBtn.addEventListener('click', () => {
       if (this.onToggleVideo) {
         const enabled = this.onToggleVideo();
-        this.elements.toggleVideoBtn.textContent = enabled ? 'Disable Video' : 'Enable Video';
+        this.updateVideoButtonState(enabled);
       }
     });
     
     this.elements.toggleAudioBtn.addEventListener('click', () => {
       if (this.onToggleAudio) {
         const enabled = this.onToggleAudio();
-        this.elements.toggleAudioBtn.textContent = enabled ? 'Mute Audio' : 'Unmute Audio';
+        this.updateAudioButtonState(enabled);
       }
     });
     
@@ -277,5 +277,25 @@ class UI {
     this.onDeletePage = onDeletePage;
     this.onPrevPage = onPrevPage;
     this.onNextPage = onNextPage;
+  }
+
+  updateVideoButtonState(enabled) {
+    if (enabled) {
+      this.elements.toggleVideoBtn.classList.add('active');
+      this.elements.toggleVideoBtn.title = 'Disable Video';
+    } else {
+      this.elements.toggleVideoBtn.classList.remove('active');
+      this.elements.toggleVideoBtn.title = 'Enable Video';
+    }
+  }
+
+  updateAudioButtonState(enabled) {
+    if (enabled) {
+      this.elements.toggleAudioBtn.classList.add('active');
+      this.elements.toggleAudioBtn.title = 'Mute Audio';
+    } else {
+      this.elements.toggleAudioBtn.classList.remove('active');
+      this.elements.toggleAudioBtn.title = 'Unmute Audio';
+    }
   }
 }
