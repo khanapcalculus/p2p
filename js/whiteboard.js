@@ -5,6 +5,8 @@ class Whiteboard {
     this.currentTool = 'pencil';
     this.color = '#000000';
     this.brushSize = 3;
+    this.isPanning = false;
+    this.lastPanPoint = { x: 0, y: 0 };
     this.pages = [];
     this.currentPageIndex = 0;
     this.canvasSize = {
@@ -42,7 +44,7 @@ class Whiteboard {
     const canvasContainer = document.getElementById('whiteboard').parentElement;
     canvasContainer.style.width = `${viewportWidth}px`;
     canvasContainer.style.height = `${viewportHeight}px`;
-    canvasContainer.style.overflow = 'auto'; // Allow scrolling within page
+    canvasContainer.style.overflow = 'hidden'; // Hide overflow for panning
     canvasContainer.style.position = 'relative';
     
     // Set canvas element size for viewport
@@ -50,6 +52,9 @@ class Whiteboard {
       width: viewportWidth,
       height: viewportHeight
     }, { cssOnly: true });
+    
+    // Initialize viewport transform
+    this.canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
     
     this.canvas.renderAll();
   }
@@ -186,17 +191,27 @@ class Whiteboard {
 
     // Reset canvas mode
     this.canvas.isDrawingMode = false;
+    this.isPanning = false;
 
     switch (tool) {
       case 'pencil':
         this.canvas.isDrawingMode = true;
         this.canvas.freeDrawingBrush.color = this.color;
         this.canvas.freeDrawingBrush.width = this.brushSize;
+        this.canvas.defaultCursor = 'crosshair';
         break;
       case 'eraser':
         this.canvas.isDrawingMode = true;
         this.canvas.freeDrawingBrush.color = '#ffffff';
         this.canvas.freeDrawingBrush.width = this.brushSize * 2;
+        this.canvas.defaultCursor = 'crosshair';
+        break;
+      case 'pan':
+        this.isPanning = true;
+        this.canvas.defaultCursor = 'grab';
+        break;
+      default:
+        this.canvas.defaultCursor = 'default';
         break;
     }
   }
@@ -220,6 +235,12 @@ class Whiteboard {
     let shape;
 
     this.canvas.on('mouse:down', (options) => {
+      if (this.isPanning) {
+        this.canvas.defaultCursor = 'grabbing';
+        this.lastPanPoint = { x: options.e.clientX, y: options.e.clientY };
+        return;
+      }
+      
       if (this.currentTool === 'pencil' || this.currentTool === 'eraser') return;
 
       this.isDrawing = true;
@@ -282,6 +303,19 @@ class Whiteboard {
     });
 
     this.canvas.on('mouse:move', (options) => {
+      if (this.isPanning && this.lastPanPoint) {
+        const deltaX = options.e.clientX - this.lastPanPoint.x;
+        const deltaY = options.e.clientY - this.lastPanPoint.y;
+        
+        const vpt = this.canvas.viewportTransform;
+        vpt[4] += deltaX;
+        vpt[5] += deltaY;
+        
+        this.canvas.setViewportTransform(vpt);
+        this.lastPanPoint = { x: options.e.clientX, y: options.e.clientY };
+        return;
+      }
+      
       if (!this.isDrawing || this.currentTool === 'text') return;
 
       const pointer = this.canvas.getPointer(options.e);
@@ -320,6 +354,12 @@ class Whiteboard {
     });
 
     this.canvas.on('mouse:up', () => {
+      if (this.isPanning) {
+        this.canvas.defaultCursor = 'grab';
+        this.lastPanPoint = null;
+        return;
+      }
+      
       this.isDrawing = false;
       this.canvas.renderAll();
       
