@@ -10,8 +10,8 @@ class Whiteboard {
     this.pages = [];
     this.currentPageIndex = 0;
     this.canvasSize = {
-      width: 1000,
-      height: 2000  // A4-like ratio but manageable size
+      width: 800,   // Reduced from 1000
+      height: 1200  // Reduced from 2000 - much more manageable
     };
     this.changeTimeout = null; // For debouncing changes
     this.initialize();
@@ -43,7 +43,7 @@ class Whiteboard {
     // Set viewport container
     const container = document.getElementById('whiteboard').parentElement;
     const viewportWidth = Math.min(container.clientWidth, this.canvasSize.width);
-    const viewportHeight = Math.min(600, this.canvasSize.height);
+    const viewportHeight = Math.min(500, this.canvasSize.height); // Reduced viewport height
     
     // Create viewport container
     const canvasContainer = document.getElementById('whiteboard').parentElement;
@@ -60,6 +60,9 @@ class Whiteboard {
     
     // Initialize viewport transform
     this.canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    
+    // Disable fabric.js touch handling - we'll handle it ourselves
+    this.canvas.allowTouchScrolling = false;
     
     this.canvas.renderAll();
   }
@@ -259,24 +262,92 @@ class Whiteboard {
     }, 100); // Debounce by 100ms
   }
 
+  // Get pointer position that works for both mouse and touch
+  getPointerPosition(e) {
+    const rect = this.canvas.getElement().getBoundingClientRect();
+    let clientX, clientY;
+    
+    if (e.touches && e.touches.length > 0) {
+      // Touch event
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      // Mouse event
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+      clientX: clientX,
+      clientY: clientY
+    };
+  }
+
   setupCanvasEvents() {
     let startPoint;
     let shape;
     let isPanningActive = false;
 
-    this.canvas.on('mouse:down', (options) => {
+    // Handle both mouse and touch events for pan
+    const handlePanStart = (e) => {
       if (this.isPanning) {
         isPanningActive = true;
         this.canvas.defaultCursor = 'grabbing';
-        this.lastPanPoint = { x: options.e.clientX, y: options.e.clientY };
+        const pos = this.getPointerPosition(e);
+        this.lastPanPoint = { x: pos.clientX, y: pos.clientY };
         
-        // Prevent any default fabric.js behavior
-        options.e.preventDefault();
-        options.e.stopPropagation();
+        // Prevent any default behavior
+        e.preventDefault();
+        e.stopPropagation();
         return false;
       }
+    };
+
+    const handlePanMove = (e) => {
+      if (this.isPanning && isPanningActive && this.lastPanPoint) {
+        const pos = this.getPointerPosition(e);
+        const deltaX = pos.clientX - this.lastPanPoint.x;
+        const deltaY = pos.clientY - this.lastPanPoint.y;
+        
+        const vpt = this.canvas.viewportTransform;
+        vpt[4] += deltaX;
+        vpt[5] += deltaY;
+        
+        // Constrain panning to prevent going too far
+        const maxPanX = 0;
+        const minPanX = -(this.canvasSize.width - this.canvas.width);
+        const maxPanY = 0;
+        const minPanY = -(this.canvasSize.height - this.canvas.height);
+        
+        vpt[4] = Math.max(minPanX, Math.min(maxPanX, vpt[4]));
+        vpt[5] = Math.max(minPanY, Math.min(maxPanY, vpt[5]));
+        
+        this.canvas.setViewportTransform(vpt);
+        this.canvas.requestRenderAll();
+        this.lastPanPoint = { x: pos.clientX, y: pos.clientY };
+        
+        // Prevent any default behavior
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    const handlePanEnd = (e) => {
+      if (this.isPanning) {
+        isPanningActive = false;
+        this.canvas.defaultCursor = 'grab';
+        this.lastPanPoint = null;
+        return false;
+      }
+    };
+
+    this.canvas.on('mouse:down', (options) => {
+      handlePanStart(options.e);
       
-      if (this.currentTool === 'pencil' || this.currentTool === 'eraser') return;
+      if (this.currentTool === 'pencil' || this.currentTool === 'eraser' || this.isPanning) return;
 
       this.isDrawing = true;
       startPoint = this.canvas.getPointer(options.e);
@@ -340,25 +411,9 @@ class Whiteboard {
     });
 
     this.canvas.on('mouse:move', (options) => {
-      if (this.isPanning && isPanningActive && this.lastPanPoint) {
-        const deltaX = options.e.clientX - this.lastPanPoint.x;
-        const deltaY = options.e.clientY - this.lastPanPoint.y;
-        
-        const vpt = this.canvas.viewportTransform;
-        vpt[4] += deltaX;
-        vpt[5] += deltaY;
-        
-        this.canvas.setViewportTransform(vpt);
-        this.canvas.requestRenderAll(); // Use requestRenderAll for better performance
-        this.lastPanPoint = { x: options.e.clientX, y: options.e.clientY };
-        
-        // Prevent any default fabric.js behavior
-        options.e.preventDefault();
-        options.e.stopPropagation();
-        return false;
-      }
+      handlePanMove(options.e);
       
-      if (!this.isDrawing || this.currentTool === 'text') return;
+      if (!this.isDrawing || this.currentTool === 'text' || this.isPanning) return;
 
       const pointer = this.canvas.getPointer(options.e);
 
@@ -396,12 +451,9 @@ class Whiteboard {
     });
 
     this.canvas.on('mouse:up', () => {
-      if (this.isPanning) {
-        isPanningActive = false;
-        this.canvas.defaultCursor = 'grab';
-        this.lastPanPoint = null;
-        return false;
-      }
+      handlePanEnd();
+      
+      if (this.isPanning) return false;
       
       this.isDrawing = false;
       this.canvas.renderAll();
@@ -409,6 +461,13 @@ class Whiteboard {
       // Use debounced change notification
       this.notifyChange();
     });
+
+    // Add touch event listeners for better tablet support
+    const canvasElement = this.canvas.getElement();
+    
+    canvasElement.addEventListener('touchstart', handlePanStart, { passive: false });
+    canvasElement.addEventListener('touchmove', handlePanMove, { passive: false });
+    canvasElement.addEventListener('touchend', handlePanEnd, { passive: false });
 
     // Handle drawing completion (for pencil/eraser)
     this.canvas.on('path:created', () => {
