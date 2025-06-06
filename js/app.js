@@ -33,9 +33,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.setLocalStream(screenStream);
       }
     },
+    onGoToPage: (pageNumber) => {
+      whiteboard.goToPage(pageNumber);
+    },
     onCreateRoom: async (roomId, userName, role) => {
-      // Initialize media
-      const stream = await peerConnection.getLocalStream();
+      // Initialize media with graceful fallback for tablets
+      const stream = await peerConnection.getLocalStream(true, true);
       if (stream) {
         ui.setLocalStream(stream);
       }
@@ -47,8 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
       peerConnection.joinRoom(roomId, userName);
     },
     onJoinRoom: async (roomId, userName, role) => {
-      // Initialize media
-      const stream = await peerConnection.getLocalStream();
+      // Initialize media with graceful fallback for tablets
+      const stream = await peerConnection.getLocalStream(true, true);
       if (stream) {
         ui.setLocalStream(stream);
       }

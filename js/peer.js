@@ -261,14 +261,48 @@ class PeerConnection {
   // Get local media stream
   async getLocalStream(videoEnabled = true, audioEnabled = true) {
     try {
+      // Try with both video and audio first
       this.localStream = await navigator.mediaDevices.getUserMedia({
         video: videoEnabled,
         audio: audioEnabled
       });
       return this.localStream;
     } catch (error) {
-      console.error('Error getting local stream:', error);
-      this.updateStatus('Error accessing camera/microphone');
+      console.warn('Failed to get media with both video and audio:', error);
+      
+      // Try with video only if audio fails
+      if (videoEnabled && audioEnabled) {
+        try {
+          console.log('Trying video only...');
+          this.localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
+          console.log('Video-only stream obtained');
+          return this.localStream;
+        } catch (videoError) {
+          console.warn('Failed to get video stream:', videoError);
+        }
+      }
+      
+      // Try with audio only if video fails
+      if (audioEnabled) {
+        try {
+          console.log('Trying audio only...');
+          this.localStream = await navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: true
+          });
+          console.log('Audio-only stream obtained');
+          return this.localStream;
+        } catch (audioError) {
+          console.warn('Failed to get audio stream:', audioError);
+        }
+      }
+      
+      // If all media fails, continue without media
+      console.log('No media available, continuing without audio/video');
+      this.updateStatus('No camera/microphone access - whiteboard will work without video/audio');
       return null;
     }
   }

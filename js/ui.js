@@ -18,9 +18,11 @@ class UI {
       circleTool: document.getElementById('circle-tool'),
       textTool: document.getElementById('text-tool'),
       eraserTool: document.getElementById('eraser-tool'),
+      panTool: document.getElementById('pan-tool'),
       clearCanvas: document.getElementById('clear-canvas'),
       colorSelector: document.getElementById('color-selector'),
-      brushSize: document.getElementById('brush-size')
+      brushSize: document.getElementById('brush-size'),
+      pageNav: document.getElementById('page-nav')
     };
     
     this.toolButtons = [
@@ -29,7 +31,8 @@ class UI {
       this.elements.rectTool,
       this.elements.circleTool,
       this.elements.textTool,
-      this.elements.eraserTool
+      this.elements.eraserTool,
+      this.elements.panTool
     ];
     
     this.initialize();
@@ -43,6 +46,32 @@ class UI {
     
     // Set up event listeners for UI controls
     this.setupEventListeners();
+    
+    // Create page navigation
+    this.createPageNavigation();
+  }
+
+  createPageNavigation() {
+    const pageNavContainer = this.elements.pageNav;
+    if (!pageNavContainer) return;
+    
+    // Clear existing content
+    pageNavContainer.innerHTML = '<span style="margin-right: 10px; font-weight: bold;">Go to Page:</span>';
+    
+    // Create page buttons
+    for (let i = 1; i <= 10; i++) {
+      const button = document.createElement('button');
+      button.textContent = i;
+      button.style.margin = '2px';
+      button.style.padding = '4px 8px';
+      button.style.fontSize = '12px';
+      button.addEventListener('click', () => {
+        if (this.onGoToPage) {
+          this.onGoToPage(i);
+        }
+      });
+      pageNavContainer.appendChild(button);
+    }
   }
 
   setupEventListeners() {
@@ -152,7 +181,8 @@ class UI {
       onToggleAudio,
       onShareScreen,
       onCreateRoom,
-      onJoinRoom
+      onJoinRoom,
+      onGoToPage
     } = callbacks;
     
     this.onToolChange = onToolChange;
@@ -164,5 +194,6 @@ class UI {
     this.onShareScreen = onShareScreen;
     this.onCreateRoom = onCreateRoom;
     this.onJoinRoom = onJoinRoom;
+    this.onGoToPage = onGoToPage;
   }
 }
