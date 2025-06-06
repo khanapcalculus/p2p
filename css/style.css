@@ -77,42 +77,51 @@ button:hover {
 
 /* Main workspace */
 .workspace {
-  display: flex;
+  position: relative;
   flex: 1;
   overflow: hidden;
 }
 
-/* Tools panel on left */
+/* Floating tools panel on left */
 .tools-panel {
-  width: 120px;
-  background-color: #f8f9fa;
-  border-right: 1px solid #ddd;
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  width: auto;
+  background-color: rgba(248, 249, 250, 0.95);
+  border: 1px solid #ddd;
+  border-radius: 12px;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 20px 10px;
-  flex-shrink: 0;
+  flex-direction: row;
+  align-items: center;
+  padding: 8px 12px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  flex-wrap: wrap;
+  max-width: calc(100vw - 30px);
 }
 
 .drawing-tools {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 20px;
+  flex-direction: row;
+  gap: 6px;
+  margin-right: 12px;
 }
 
 .tool, .clear-btn {
-  width: 50px;
-  height: 50px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
-  font-size: 20px;
+  font-size: 16px;
   background-color: #e9ecef;
   color: #495057;
   border: 2px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .tool.active {
@@ -124,7 +133,6 @@ button:hover {
 .clear-btn {
   background-color: #dc3545;
   color: white;
-  margin-top: 10px;
 }
 
 .clear-btn:hover {
@@ -133,43 +141,51 @@ button:hover {
 
 .tool-options {
   display: flex;
-  flex-direction: column;
-  gap: 15px;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
 }
 
 .color-picker, .brush-size {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 .color-picker label, .brush-size label {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: bold;
+  white-space: nowrap;
 }
 
 .color-picker input {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
 }
 
 .brush-size input {
-  width: 80px;
+  width: 50px;
+  height: 20px;
 }
 
 #brush-size-display {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: bold;
   color: #666;
+  min-width: 15px;
 }
 
 /* Canvas area */
 .canvas-area {
-  flex: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -219,60 +235,67 @@ button:hover {
   background: #f1f1f1;
 }
 
-/* Camera section on right side */
+/* Floating camera section on right side */
 .camera-section {
-  width: 200px;
-  background-color: #f8f9fa;
-  border-left: 1px solid #ddd;
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: auto;
+  background-color: rgba(248, 249, 250, 0.95);
+  border: 1px solid #ddd;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  padding: 10px 8px;
-  flex-shrink: 0;
+  padding: 8px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
 }
 
 .camera-container {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
+  flex-direction: row;
+  gap: 4px;
+  margin-bottom: 8px;
   align-items: center;
 }
 
 .camera-controls {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  gap: 4px;
+  align-items: center;
 }
 
 .camera-size-controls {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  margin-right: 6px;
 }
 
 .video-controls {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  gap: 3px;
   align-items: center;
 }
 
-/* Camera size classes - made smaller */
+/* Camera size classes - compact floating */
 .camera-small .video-wrapper {
+  width: 60px;
+  height: 45px;
+}
+
+.camera-medium .video-wrapper {
   width: 80px;
   height: 60px;
 }
 
-.camera-medium .video-wrapper {
+.camera-large .video-wrapper {
   width: 120px;
   height: 90px;
-}
-
-.camera-large .video-wrapper {
-  width: 160px;
-  height: 120px;
 }
 
 /* Default to medium for compact design */
@@ -305,9 +328,14 @@ video {
 
 .size-btn {
   padding: 2px 4px;
-  font-size: 9px;
+  font-size: 8px;
   background-color: #6c757d;
-  min-width: 30px;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  min-width: 20px;
+  height: 18px;
 }
 
 .size-btn.active {
@@ -315,18 +343,18 @@ video {
 }
 
 .video-btn {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 12px;
   background-color: #e9ecef;
   color: #495057;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.2s;
   padding: 0;
 }
 
@@ -488,20 +516,23 @@ video {
   }
   
   .workspace {
-    flex-direction: column;
+    position: relative;
     flex: 1;
     min-height: 0; /* Allow shrinking */
     overflow: hidden;
   }
   
   .tools-panel {
-    width: 100%;
-    height: 70px;
-    flex-direction: row;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    top: auto;
+    right: auto;
+    width: auto;
+    max-width: calc(100vw - 20px);
+    flex-wrap: wrap;
     justify-content: center;
-    padding: 8px;
-    order: 2; /* Move tools below canvas on mobile */
-    flex-shrink: 0;
   }
   
   .drawing-tools {
@@ -524,9 +555,11 @@ video {
   }
   
   .canvas-area {
-    order: 1; /* Canvas first on mobile */
-    flex: 1;
-    min-height: 0; /* Allow shrinking */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     overflow: hidden;
   }
   
@@ -537,13 +570,14 @@ video {
   }
   
   .camera-section {
-    width: 100%;
+    position: fixed;
+    top: 20px;
+    right: 10px;
+    left: auto;
+    bottom: auto;
+    width: auto;
     flex-direction: row;
-    justify-content: center;
-    height: 80px;
-    padding: 5px;
-    order: 3; /* Camera last on mobile */
-    flex-shrink: 0;
+    z-index: 1001;
   }
   
   .camera-container {
