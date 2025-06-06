@@ -79,7 +79,7 @@ button:hover {
 .workspace {
   position: relative;
   flex: 1;
-  overflow: hidden;
+  overflow: hidden; /* This correctly contains the positioned canvas-area */
 }
 
 /* Floating tools panel on left */
@@ -196,20 +196,24 @@ button:hover {
   background-color: white;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   touch-action: none;
-  border: none;
-  margin: 0;
-  padding: 0;
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  /* Make the container slightly smaller than the parent to create a margin */
+  top: 10px;
+  left: 10px;
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
+  /* This container must be the one that scrolls */
+  overflow: scroll !important;
+  -webkit-overflow-scrolling: touch;
+  /* REMOVED the fuchsia test border */
+  border: 1px solid #ddd;
 }
 
 #whiteboard {
   background-color: white;
   cursor: crosshair;
   border: none;
+  /* Allow panning for touch, but scrolling is handled by the container */
   touch-action: pan-x pan-y;
   user-select: none;
   -webkit-user-select: none;
@@ -218,83 +222,42 @@ button:hover {
   display: block;
   margin: 0;
   padding: 0;
+  /* This element needs to be larger than .whiteboard-container via JS to enable scrolling */
 }
 
-/* Custom scrollbar styling for desktop - EXTRA LARGE */
+/* --- RE-STYLED SCROLLBAR --- */
+/* A more conventional, clean scrollbar style */
+
 .whiteboard-container::-webkit-scrollbar {
-  width: 150px !important;
-  height: 150px !important;
+  width: 28px;
+  height: 14px;
 }
 
-  .whiteboard-container::-webkit-scrollbar-track {
-    background: #f1f3f4 !important;
-    border-radius: 75px !important;
-    border: 5px solid #ffffff !important;
-  }
+.whiteboard-container::-webkit-scrollbar-track {
+  background: #ffffff; /* White track */
+}
 
-  .whiteboard-container::-webkit-scrollbar-thumb {
-    background: #9aa0a6 !important;
-    border-radius: 75px !important;
-    border: 15px solid #ffffff !important;
-    min-height: 300px !important;
-    min-width: 300px !important;
-  }
+.whiteboard-container::-webkit-scrollbar-thumb {
+  background-color: #cccccc; /* Light grey thumb */
+  border-radius: 7px;
+  border: 3px solid #ffffff; /* Padding around thumb */
+}
 
 .whiteboard-container::-webkit-scrollbar-thumb:hover {
-  background: #5f6368 !important;
+  background: #a8a8a8; /* Darker grey on hover */
 }
 
 .whiteboard-container::-webkit-scrollbar-corner {
-  background: #f1f3f4 !important;
-  border-radius: 45px !important;
+  background: #ffffff; /* Match track background */
 }
 
-/* Ensure scrollbars are always visible and large */
-.whiteboard-container {
-  overflow: auto !important;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thick !important; /* Firefox - thick scrollbars */
-  scrollbar-color: #9aa0a6 #f1f3f4 !important; /* Firefox - neutral colors */
-}
 
-/* Force EXTRA LARGE scrollbars on ALL devices - MASSIVE WIDTH */
-.whiteboard-container::-webkit-scrollbar {
-  width: 150px !important;
-  height: 150px !important;
-  display: block !important;
-}
-
-  .whiteboard-container::-webkit-scrollbar-track {
-    background: #f1f3f4 !important;
-    border-radius: 75px !important;
-    border: 5px solid #ffffff !important;
-  }
-
-  .whiteboard-container::-webkit-scrollbar-thumb {
-    background: #9aa0a6 !important;
-    border-radius: 75px !important;
-    border: 15px solid #ffffff !important;
-    min-height: 300px !important;
-    min-width: 300px !important;
-  }
-
-.whiteboard-container::-webkit-scrollbar-thumb:hover {
-  background: #5f6368 !important;
-}
-
-.whiteboard-container::-webkit-scrollbar-thumb:active {
-  background: #3c4043 !important;
-}
-
-.whiteboard-container::-webkit-scrollbar-corner {
-  background: #f1f3f4 !important;
-}
-
-/* Floating camera section on right side */
+/* Floating camera section */
 .camera-section {
   position: absolute;
   top: 25px;
-  right: 25px;
+  /* CHANGED: Moved further left to avoid overlapping the scrollbar */
+  right: 45px;
   width: auto;
   background-color: rgba(248, 249, 250, 0.95);
   border: 1px solid #ddd;
@@ -513,61 +476,6 @@ video {
   color: #856404;
 }
 
-/* Desktop ONLY - Large but reasonable scrollbars */
-@media (min-width: 769px) {
-  .whiteboard-container {
-    overflow: scroll !important; /* Force scrollbars to always show */
-    overflow-x: scroll !important;
-    overflow-y: scroll !important;
-    /* 10px margin from all edges */
-    width: calc(100% - 20px) !important;
-    height: calc(100% - 20px) !important;
-    position: absolute !important;
-    top: 10px !important;
-    left: 10px !important;
-    right: 10px !important;
-    bottom: 10px !important;
-    box-sizing: border-box !important;
-  }
-
-  .whiteboard-container::-webkit-scrollbar {
-    width: 120px !important;
-    height: 120px !important;
-    display: block !important;
-    -webkit-appearance: none !important;
-  }
-
-  .whiteboard-container::-webkit-scrollbar-track {
-    background: #f1f3f4 !important;
-    border-radius: 60px !important;
-    border: 5px solid #ffffff !important;
-    -webkit-appearance: none !important;
-  }
-
-  .whiteboard-container::-webkit-scrollbar-thumb {
-    background: #9aa0a6 !important;
-    border-radius: 60px !important;
-    border: 15px solid #ffffff !important;
-    min-height: 200px !important;
-    min-width: 200px !important;
-    -webkit-appearance: none !important;
-  }
-
-  .whiteboard-container::-webkit-scrollbar-thumb:hover {
-    background: #5f6368 !important;
-  }
-
-  .whiteboard-container::-webkit-scrollbar-thumb:active {
-    background: #3c4043 !important;
-  }
-
-  .whiteboard-container::-webkit-scrollbar-corner {
-    background: #f1f3f4 !important;
-    border-radius: 60px !important;
-  }
-
-
-}
 
 /* Mobile/Tablet responsive */
 @media (max-width: 768px) {
@@ -664,42 +572,12 @@ video {
     gap: 10px;
     align-items: center;
   }
-  
-  .canvas-area {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    overflow: hidden;
-  }
-  
-  .whiteboard-container {
-    /* 10px margin from all edges on tablet/mobile */
-    width: calc(100% - 20px) !important;
-    height: calc(100% - 20px) !important;
-    position: absolute !important;
-    top: 10px !important;
-    left: 10px !important;
-    right: 10px !important;
-    bottom: 10px !important;
-    overflow: scroll !important;
-    overflow-x: scroll !important;
-    overflow-y: scroll !important;
-    -webkit-overflow-scrolling: touch;
-    /* Enhanced touch scrolling */
-    overscroll-behavior: contain;
-    touch-action: pan-x pan-y;
-    /* Force scrollbar visibility on mobile */
-    scrollbar-width: thick; /* Firefox */
-    scrollbar-color: #9aa0a6 #f1f3f4; /* Firefox */
-    box-sizing: border-box !important;
-  }
-  
+    
   .camera-section {
     position: fixed;
-    top: 30px;
-    right: 20px;
+    /* CHANGED: Repositioned for mobile view as well */
+    top: 15px;
+    right: 30px;
     left: auto;
     bottom: auto;
     width: auto;
@@ -749,37 +627,7 @@ video {
     font-size: 14px;
     min-height: 44px; /* Touch target size */
   }
-  
-  /* Enhanced scrollbar for tablet/mobile - Touch-friendly size */
-  .whiteboard-container::-webkit-scrollbar {
-    width: 60px !important;
-    height: 60px !important;
-  }
-
-  .whiteboard-container::-webkit-scrollbar-track {
-    background: #f1f3f4 !important;
-    border-radius: 75px !important;
-    border: 6px solid #ffffff !important;
-  }
-  
-  .whiteboard-container::-webkit-scrollbar-thumb {
-    background: #9aa0a6 !important;
-    border-radius: 75px !important;
-    border: 18px solid #ffffff !important;
-    min-height: 300px !important;
-    min-width: 300px !important;
-  }
-
-  .whiteboard-container::-webkit-scrollbar-thumb:active {
-    background: #3c4043 !important;
-    border: 15px solid #ffffff !important;
-  }
-
-  .whiteboard-container::-webkit-scrollbar-corner {
-    background: #f1f3f4 !important;
-    border-radius: 75px !important;
-  }
-  
+    
   /* Prevent zoom on inputs */
   input[type="text"], 
   input[type="color"], 
