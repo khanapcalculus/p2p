@@ -10,15 +10,16 @@ class Whiteboard {
     this.pages = [];
     this.currentPageIndex = 0;
     this.canvasSize = {
-      width: 800,   // Reduced from 1000
-      height: 1200  // Reduced from 2000 - much more manageable
+      width: Math.max(800, window.innerWidth - 100),  // Window width minus margins
+      height: Math.max(1200, (window.innerHeight - 200) * 2)  // Double the available height
     };
     this.changeTimeout = null; // For debouncing changes
+    this.drawingBuffer = []; // For continuous drawing
     this.initialize();
   }
 
   initialize() {
-    // Set manageable canvas size
+    // Set window-sized canvas
     this.setupCanvas();
     
     // Create first page
@@ -29,27 +30,36 @@ class Whiteboard {
 
     // Setup event listeners for canvas events
     this.setupCanvasEvents();
+    
+    // Listen for window resize
+    window.addEventListener('resize', () => this.handleResize());
+  }
+
+  handleResize() {
+    // Update canvas size on window resize
+    this.canvasSize.width = Math.max(800, window.innerWidth - 100);
+    this.canvasSize.height = Math.max(1200, (window.innerHeight - 200) * 2);
+    this.setupCanvas();
   }
 
   setupCanvas() {
-    // Set canvas to manageable size
+    // Set canvas to window-based size
     this.canvas.setWidth(this.canvasSize.width);
     this.canvas.setHeight(this.canvasSize.height);
     
     // Performance optimizations
-    this.canvas.renderOnAddRemove = false; // Disable auto-render on add/remove
-    this.canvas.skipOffscreen = true; // Skip rendering offscreen objects
+    this.canvas.renderOnAddRemove = false;
+    this.canvas.skipOffscreen = true;
     
-    // Set viewport container
-    const container = document.getElementById('whiteboard').parentElement;
-    const viewportWidth = Math.min(container.clientWidth, this.canvasSize.width);
-    const viewportHeight = Math.min(500, this.canvasSize.height); // Reduced viewport height
+    // Set viewport to show portion of canvas
+    const viewportWidth = Math.min(window.innerWidth - 200, this.canvasSize.width); // Leave space for tools
+    const viewportHeight = Math.min(window.innerHeight - 300, this.canvasSize.height); // Leave space for camera and nav
     
-    // Create viewport container
+    // Update canvas container
     const canvasContainer = document.getElementById('whiteboard').parentElement;
     canvasContainer.style.width = `${viewportWidth}px`;
     canvasContainer.style.height = `${viewportHeight}px`;
-    canvasContainer.style.overflow = 'hidden'; // Hide overflow for panning
+    canvasContainer.style.overflow = 'hidden';
     canvasContainer.style.position = 'relative';
     
     // Set canvas element size for viewport
@@ -61,7 +71,7 @@ class Whiteboard {
     // Initialize viewport transform
     this.canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
     
-    // Disable fabric.js touch handling - we'll handle it ourselves
+    // Disable fabric.js touch handling
     this.canvas.allowTouchScrolling = false;
     
     this.canvas.renderAll();
@@ -244,7 +254,61 @@ class Whiteboard {
     }
   }
 
-  // Debounced change notification to prevent too many updates
+  // Continuous drawing synchronization
+  sendContinuousDrawing(type, data) {
+    if (typeof this.onContinuousDrawing === 'function') {
+      this.onContinuousDrawing({
+        type: type, // 'start', 'move', 'end'
+        data: data,
+        pageIndex: this.currentPageIndex,
+        tool: this.currentTool,
+        color: this.color,
+        brushSize: this.brushSize,
+        timestamp: Date.now()
+      });
+    }
+  }
+
+  // Handle received continuous drawing
+  receiveContinuousDrawing(drawingData) {
+    if (drawingData.pageIndex !== this.currentPageIndex) return;
+    
+    // Apply the drawing data in real-time
+    switch (drawingData.type) {
+      case 'start':
+        // Start a new drawing path
+        this.remoteDrawingPath = new fabric.Path('', {
+          stroke: drawingData.color,
+          strokeWidth: drawingData.brushSize,
+          fill: '',
+          selectable: false
+        });
+        break;
+      case 'move':
+        // Update the drawing path
+        if (this.remoteDrawingPath && drawingData.data) {
+          // Update path data for continuous drawing
+          this.updateRemoteDrawingPath(drawingData.data);
+        }
+        break;
+      case 'end':
+        // Finalize the drawing
+        if (this.remoteDrawingPath) {
+          this.canvas.add(this.remoteDrawingPath);
+          this.canvas.renderAll();
+          this.remoteDrawingPath = null;
+        }
+        break;
+    }
+  }
+
+  updateRemoteDrawingPath(pathData) {
+    // This would need to be implemented based on the specific path format
+    // For now, we'll use the debounced update system
+    this.notifyChange();
+  }
+
+  // Debounced change notification
   notifyChange() {
     if (this.changeTimeout) {
       clearTimeout(this.changeTimeout);
@@ -259,7 +323,7 @@ class Whiteboard {
           pageStructure: this.getPageStructure()
         });
       }
-    }, 100); // Debounce by 100ms
+    }, 50); // Reduced debounce for more responsive updates
   }
 
   // Get pointer position that works for both mouse and touch
@@ -268,7 +332,7 @@ class Whiteboard {
     let clientX, clientY;
     
     if (e.touches && e.touches.length > 0) {
-      // Touch event
+      // Touch event - use only first touch to avoid palm issues
       clientX = e.touches[0].clientX;
       clientY = e.touches[0].clientY;
     } else {
@@ -289,6 +353,7 @@ class Whiteboard {
     let startPoint;
     let shape;
     let isPanningActive = false;
+    let isDrawingPath = false;
 
     // Handle both mouse and touch events for pan
     const handlePanStart = (e) => {
@@ -298,7 +363,6 @@ class Whiteboard {
         const pos = this.getPointerPosition(e);
         this.lastPanPoint = { x: pos.clientX, y: pos.clientY };
         
-        // Prevent any default behavior
         e.preventDefault();
         e.stopPropagation();
         return false;
@@ -315,7 +379,7 @@ class Whiteboard {
         vpt[4] += deltaX;
         vpt[5] += deltaY;
         
-        // Constrain panning to prevent going too far
+        // Constrain panning
         const maxPanX = 0;
         const minPanX = -(this.canvasSize.width - this.canvas.width);
         const maxPanY = 0;
@@ -328,7 +392,6 @@ class Whiteboard {
         this.canvas.requestRenderAll();
         this.lastPanPoint = { x: pos.clientX, y: pos.clientY };
         
-        // Prevent any default behavior
         e.preventDefault();
         e.stopPropagation();
         return false;
@@ -347,7 +410,14 @@ class Whiteboard {
     this.canvas.on('mouse:down', (options) => {
       handlePanStart(options.e);
       
-      if (this.currentTool === 'pencil' || this.currentTool === 'eraser' || this.isPanning) return;
+      if (this.isPanning) return;
+
+      if (this.currentTool === 'pencil' || this.currentTool === 'eraser') {
+        isDrawingPath = true;
+        const pointer = this.canvas.getPointer(options.e);
+        this.sendContinuousDrawing('start', { x: pointer.x, y: pointer.y });
+        return;
+      }
 
       this.isDrawing = true;
       startPoint = this.canvas.getPointer(options.e);
@@ -400,29 +470,34 @@ class Whiteboard {
           this.canvas.setActiveObject(shape);
           shape.enterEditing();
           shape.selectAll();
-          this.canvas.renderAll(); // Manual render after add
+          this.canvas.renderAll();
           break;
       }
 
       if (this.currentTool !== 'text' && shape) {
         this.canvas.add(shape);
-        this.canvas.renderAll(); // Manual render after add
+        this.canvas.renderAll();
       }
     });
 
     this.canvas.on('mouse:move', (options) => {
       handlePanMove(options.e);
       
-      if (!this.isDrawing || this.currentTool === 'text' || this.isPanning) return;
+      if (this.isPanning) return;
+
+      // Send continuous drawing data for pencil/eraser
+      if (isDrawingPath && (this.currentTool === 'pencil' || this.currentTool === 'eraser')) {
+        const pointer = this.canvas.getPointer(options.e);
+        this.sendContinuousDrawing('move', { x: pointer.x, y: pointer.y });
+      }
+      
+      if (!this.isDrawing || this.currentTool === 'text') return;
 
       const pointer = this.canvas.getPointer(options.e);
 
       switch (this.currentTool) {
         case 'line':
-          shape.set({
-            x2: pointer.x,
-            y2: pointer.y
-          });
+          shape.set({ x2: pointer.x, y2: pointer.y });
           break;
         case 'rect':
           if (startPoint.x > pointer.x) {
@@ -441,24 +516,27 @@ class Whiteboard {
             Math.pow(startPoint.x - pointer.x, 2) +
             Math.pow(startPoint.y - pointer.y, 2)
           ) / 2;
-          shape.set({
-            radius: radius
-          });
+          shape.set({ radius: radius });
           break;
       }
 
-      this.canvas.requestRenderAll(); // Use requestRenderAll for better performance
+      this.canvas.requestRenderAll();
     });
 
     this.canvas.on('mouse:up', () => {
       handlePanEnd();
       
       if (this.isPanning) return false;
+
+      // End continuous drawing
+      if (isDrawingPath && (this.currentTool === 'pencil' || this.currentTool === 'eraser')) {
+        this.sendContinuousDrawing('end', {});
+        isDrawingPath = false;
+      }
       
       this.isDrawing = false;
       this.canvas.renderAll();
       
-      // Use debounced change notification
       this.notifyChange();
     });
 
@@ -469,12 +547,11 @@ class Whiteboard {
     canvasElement.addEventListener('touchmove', handlePanMove, { passive: false });
     canvasElement.addEventListener('touchend', handlePanEnd, { passive: false });
 
-    // Handle drawing completion (for pencil/eraser)
+    // Handle drawing completion
     this.canvas.on('path:created', () => {
       this.notifyChange();
     });
 
-    // Handle object modifications
     this.canvas.on('object:modified', () => {
       this.notifyChange();
     });
@@ -535,5 +612,9 @@ class Whiteboard {
 
   setPageChangeCallback(callback) {
     this.onPageChange = callback;
+  }
+
+  setContinuousDrawingCallback(callback) {
+    this.onContinuousDrawing = callback;
   }
 }

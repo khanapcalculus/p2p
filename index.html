@@ -8,7 +8,8 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="container">
+  <div class="app-container">
+    <!-- Header with room controls -->
     <div class="header">
       <h1>P2P Whiteboard</h1>
       <div class="controls">
@@ -27,46 +28,25 @@
       </div>
     </div>
     
-    <div class="main-content">
-      <div class="whiteboard-container">
-        <canvas id="whiteboard"></canvas>
-        <div class="drawing-tools">
-          <button id="pencil-tool" class="tool active">Pencil</button>
-          <button id="line-tool" class="tool">Line</button>
-          <button id="rect-tool" class="tool">Rectangle</button>
-          <button id="circle-tool" class="tool">Circle</button>
-          <button id="text-tool" class="tool">Text</button>
-          <button id="eraser-tool" class="tool">Eraser</button>
-          <button id="pan-tool" class="tool">Pan</button>
-          <button id="clear-canvas">Clear Page</button>
-          <div class="color-picker">
-            <input type="color" id="color-selector" value="#000000">
-          </div>
-          <div class="brush-size">
-            <input type="range" id="brush-size" min="1" max="20" value="3">
-          </div>
-        </div>
-        <div class="page-controls">
-          <div class="page-info">
-            <span id="current-page-display">Page 1 of 1</span>
-          </div>
-          <div class="page-buttons">
-            <button id="prev-page-btn" disabled>← Previous</button>
-            <button id="next-page-btn" disabled>Next →</button>
-            <button id="add-page-btn">+ Add Page</button>
-            <button id="delete-page-btn" disabled>🗑 Delete Page</button>
-          </div>
-        </div>
-      </div>
-      
-      <div class="video-container">
-        <div class="video-wrapper">
+    <!-- Camera section at top -->
+    <div class="camera-section">
+      <div class="camera-container">
+        <div class="video-wrapper" id="video-wrapper">
           <video id="local-video" autoplay muted></video>
           <div class="video-label">You</div>
         </div>
-        <div class="video-wrapper">
+        <div class="video-wrapper" id="remote-video-wrapper">
           <video id="remote-video" autoplay></video>
           <div class="video-label">Remote User</div>
+        </div>
+      </div>
+      
+      <div class="camera-controls">
+        <div class="camera-size-controls">
+          <label>Camera Size:</label>
+          <button id="camera-small" class="size-btn">Small</button>
+          <button id="camera-medium" class="size-btn">Medium</button>
+          <button id="camera-large" class="size-btn active">Large</button>
         </div>
         <div class="video-controls">
           <button id="toggle-video">Toggle Video</button>
@@ -76,8 +56,59 @@
       </div>
     </div>
     
-    <div class="connection-status">
-      <div id="status-message">Not connected</div>
+    <!-- Main workspace -->
+    <div class="workspace">
+      <!-- Drawing tools on left edge -->
+      <div class="tools-panel">
+        <div class="drawing-tools">
+          <button id="pencil-tool" class="tool active">✏️</button>
+          <button id="line-tool" class="tool">📏</button>
+          <button id="rect-tool" class="tool">⬜</button>
+          <button id="circle-tool" class="tool">⭕</button>
+          <button id="text-tool" class="tool">🅰️</button>
+          <button id="eraser-tool" class="tool">🧽</button>
+          <button id="pan-tool" class="tool">✋</button>
+          <button id="clear-canvas" class="clear-btn">🗑️</button>
+        </div>
+        
+        <div class="tool-options">
+          <div class="color-picker">
+            <label>Color:</label>
+            <input type="color" id="color-selector" value="#000000">
+          </div>
+          <div class="brush-size">
+            <label>Size:</label>
+            <input type="range" id="brush-size" min="1" max="20" value="3">
+            <span id="brush-size-display">3</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Canvas area -->
+      <div class="canvas-area">
+        <div class="whiteboard-container">
+          <canvas id="whiteboard"></canvas>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Page navigation at bottom -->
+    <div class="bottom-panel">
+      <div class="page-navigation">
+        <div class="page-info">
+          <span id="current-page-display">Page 1 of 1</span>
+        </div>
+        <div class="page-buttons">
+          <button id="prev-page-btn" disabled>← Previous</button>
+          <button id="next-page-btn" disabled>Next →</button>
+          <button id="add-page-btn">+ Add Page</button>
+          <button id="delete-page-btn" disabled>🗑 Delete Page</button>
+        </div>
+      </div>
+      
+      <div class="connection-status">
+        <div id="status-message">Not connected</div>
+      </div>
     </div>
   </div>
 
@@ -92,4 +123,5 @@
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>
 </body>
+</html>
 </html>

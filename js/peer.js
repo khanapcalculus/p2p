@@ -423,6 +423,45 @@ class PeerConnection {
     return false;
   }
 
+  // Send continuous drawing data with throttling
+  sendContinuousDrawing(drawingData) {
+    if (!this.drawingBuffer) {
+      this.drawingBuffer = [];
+      this.isSendingDrawing = false;
+    }
+    
+    // Add to buffer
+    this.drawingBuffer.push(JSON.stringify({
+      type: 'continuous-drawing',
+      ...drawingData
+    }));
+    
+    // Process buffer if not already sending
+    if (!this.isSendingDrawing) {
+      this.processDrawingBuffer();
+    }
+  }
+
+  processDrawingBuffer() {
+    if (!this.drawingBuffer || this.drawingBuffer.length === 0) {
+      this.isSendingDrawing = false;
+      return;
+    }
+    
+    this.isSendingDrawing = true;
+    
+    // Send latest drawing data (skip intermediate points for performance)
+    const latestData = this.drawingBuffer.pop();
+    this.drawingBuffer = []; // Clear buffer to prevent overflow
+    
+    this.sendData(latestData);
+    
+    // Schedule next batch
+    setTimeout(() => {
+      this.processDrawingBuffer();
+    }, 16); // ~60fps
+  }
+
   // Set callbacks
   setCallbacks(callbacks) {
     this.callbacks = { ...this.callbacks, ...callbacks };

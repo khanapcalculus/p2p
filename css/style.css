@@ -9,28 +9,33 @@ body {
   line-height: 1.6;
   color: #333;
   background-color: #f5f5f5;
+  height: 100vh;
+  overflow: hidden;
 }
 
-.container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 20px;
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
 .header {
-  margin-bottom: 20px;
+  background-color: white;
+  padding: 10px 20px;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
 }
 
 .header h1 {
   text-align: center;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   color: #2c3e50;
+  font-size: 24px;
 }
 
 .controls {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 20px;
   flex-wrap: wrap;
   gap: 10px;
 }
@@ -42,7 +47,7 @@ body {
 }
 
 input, select, button {
-  padding: 8px 12px;
+  padding: 6px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
@@ -59,25 +64,206 @@ button:hover {
   background-color: #2980b9;
 }
 
-.main-content {
+/* Camera section at top */
+.camera-section {
+  background-color: white;
+  border-bottom: 1px solid #ddd;
+  padding: 10px;
+  flex-shrink: 0;
+}
+
+.camera-container {
   display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.video-wrapper {
+  position: relative;
+  background-color: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Camera size classes */
+.camera-small .video-wrapper {
+  width: 120px;
+  height: 90px;
+}
+
+.camera-medium .video-wrapper {
+  width: 180px;
+  height: 135px;
+}
+
+.camera-large .video-wrapper {
+  width: 240px;
+  height: 180px;
+}
+
+/* Default to large */
+.video-wrapper {
+  width: 240px;
+  height: 180px;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-label {
+  position: absolute;
+  bottom: 5px;
+  left: 5px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.camera-controls {
+  display: flex;
+  justify-content: center;
   gap: 20px;
   flex-wrap: wrap;
 }
 
-.whiteboard-container {
+.camera-size-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.size-btn {
+  padding: 4px 8px;
+  font-size: 12px;
+  background-color: #6c757d;
+}
+
+.size-btn.active {
+  background-color: #3498db;
+}
+
+.video-controls {
+  display: flex;
+  gap: 5px;
+}
+
+/* Main workspace */
+.workspace {
+  display: flex;
   flex: 1;
-  min-width: 600px;
+  overflow: hidden;
+}
+
+/* Tools panel on left */
+.tools-panel {
+  width: 120px;
+  background-color: #f8f9fa;
+  border-right: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 20px 10px;
+  flex-shrink: 0;
+}
+
+.drawing-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.tool, .clear-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  font-size: 20px;
+  background-color: #e9ecef;
+  color: #495057;
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.tool.active {
+  background-color: #3498db;
+  color: white;
+  border-color: #2980b9;
+}
+
+.clear-btn {
+  background-color: #dc3545;
+  color: white;
+  margin-top: 10px;
+}
+
+.clear-btn:hover {
+  background-color: #c82333;
+}
+
+.tool-options {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.color-picker, .brush-size {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.color-picker label, .brush-size label {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.color-picker input {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.brush-size input {
+  width: 80px;
+}
+
+#brush-size-display {
+  font-size: 12px;
+  font-weight: bold;
+  color: #666;
+}
+
+/* Canvas area */
+.canvas-area {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #e9ecef;
+  padding: 20px;
+}
+
+.whiteboard-container {
   background-color: white;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  touch-action: none; /* Prevent touch gestures */
+  touch-action: none;
 }
 
 #whiteboard {
-  width: 100%;
-  height: 500px;
   background-color: white;
   cursor: crosshair;
   border: 1px solid #ddd;
@@ -88,40 +274,21 @@ button:hover {
   -ms-user-select: none;
 }
 
-.drawing-tools {
-  display: flex;
-  padding: 10px;
-  background-color: #f8f9fa;
-  border-top: 1px solid #eee;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.tool {
-  background-color: #e9ecef;
-  color: #495057;
-}
-
-.tool.active {
-  background-color: #3498db;
-  color: white;
-}
-
-.color-picker, .brush-size {
-  display: flex;
-  align-items: center;
-  margin-left: 10px;
-}
-
-.page-controls {
-  padding: 10px;
-  background-color: #f0f1f2;
+/* Bottom panel */
+.bottom-panel {
+  background-color: white;
   border-top: 1px solid #ddd;
+  padding: 10px 20px;
+  flex-shrink: 0;
+}
+
+.page-navigation {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
+  gap: 20px;
   flex-wrap: wrap;
-  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .page-info {
@@ -131,7 +298,7 @@ button:hover {
 
 .page-buttons {
   display: flex;
-  gap: 5px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -171,94 +338,50 @@ button:hover {
   background-color: #c82333 !important;
 }
 
-.video-container {
-  width: 300px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.video-wrapper {
-  position: relative;
-  width: 100%;
-  height: 225px;
-  background-color: #000;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.video-label {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  background-color: rgba(0, 0, 0, 0.5);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.video-controls {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-}
-
 .connection-status {
-  margin-top: 20px;
-  padding: 10px;
-  background-color: #f8f9fa;
-  border-radius: 4px;
   text-align: center;
+  font-size: 14px;
+  color: #666;
 }
 
-@media (max-width: 1000px) {
-  .main-content {
-    flex-direction: column;
-  }
-  
-  .whiteboard-container {
-    min-width: 100%;
-  }
-  
-  .video-container {
-    width: 100%;
-    flex-direction: row;
-  }
-  
-  .video-wrapper {
-    height: 150px;
-  }
-}
-
-/* Touch-friendly improvements for tablets */
+/* Mobile/Tablet responsive */
 @media (max-width: 768px) {
-  .drawing-tools button, .page-buttons button {
-    padding: 12px 16px;
-    font-size: 16px;
-    min-height: 44px;
-    touch-action: manipulation;
+  .tools-panel {
+    width: 80px;
+    padding: 10px 5px;
   }
   
-  .page-controls {
-    flex-direction: column;
-    align-items: stretch;
+  .tool, .clear-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+  
+  .tool-options {
     gap: 10px;
   }
   
-  .page-buttons {
-    justify-content: center;
+  .camera-container {
+    flex-direction: column;
+    align-items: center;
   }
   
-  .video-controls button {
-    padding: 12px 16px;
-    font-size: 16px;
-    min-height: 44px;
+  .camera-controls {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .page-navigation {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .header h1 {
+    font-size: 20px;
+  }
+  
+  .controls {
+    flex-direction: column;
+    gap: 5px;
   }
 }

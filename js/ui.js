@@ -22,12 +22,16 @@ class UI {
       clearCanvas: document.getElementById('clear-canvas'),
       colorSelector: document.getElementById('color-selector'),
       brushSize: document.getElementById('brush-size'),
-      pageControls: document.getElementById('page-controls'),
+      brushSizeDisplay: document.getElementById('brush-size-display'),
       currentPageDisplay: document.getElementById('current-page-display'),
       addPageBtn: document.getElementById('add-page-btn'),
       deletePageBtn: document.getElementById('delete-page-btn'),
       prevPageBtn: document.getElementById('prev-page-btn'),
-      nextPageBtn: document.getElementById('next-page-btn')
+      nextPageBtn: document.getElementById('next-page-btn'),
+      cameraSmall: document.getElementById('camera-small'),
+      cameraMedium: document.getElementById('camera-medium'),
+      cameraLarge: document.getElementById('camera-large'),
+      cameraSection: document.querySelector('.camera-section')
     };
     
     this.toolButtons = [
@@ -38,6 +42,12 @@ class UI {
       this.elements.textTool,
       this.elements.eraserTool,
       this.elements.panTool
+    ];
+    
+    this.cameraSizeButtons = [
+      this.elements.cameraSmall,
+      this.elements.cameraMedium,
+      this.elements.cameraLarge
     ];
     
     this.initialize();
@@ -51,6 +61,9 @@ class UI {
     
     // Set up event listeners for UI controls
     this.setupEventListeners();
+    
+    // Initialize brush size display
+    this.updateBrushSizeDisplay();
   }
 
   setupEventListeners() {
@@ -58,6 +71,13 @@ class UI {
     this.toolButtons.forEach(button => {
       button.addEventListener('click', () => {
         this.setActiveTool(button);
+      });
+    });
+    
+    // Camera size controls
+    this.cameraSizeButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        this.setCameraSize(button);
       });
     });
     
@@ -70,8 +90,10 @@ class UI {
     
     // Brush size
     this.elements.brushSize.addEventListener('input', () => {
+      const size = parseInt(this.elements.brushSize.value);
+      this.updateBrushSizeDisplay();
       if (this.onBrushSizeChange) {
-        this.onBrushSizeChange(parseInt(this.elements.brushSize.value));
+        this.onBrushSizeChange(size);
       }
     });
     
@@ -163,6 +185,29 @@ class UI {
     if (this.onToolChange) {
       const toolName = activeButton.id.replace('-tool', '');
       this.onToolChange(toolName);
+    }
+  }
+
+  setCameraSize(activeButton) {
+    // Remove active class from all camera size buttons
+    this.cameraSizeButtons.forEach(button => {
+      button.classList.remove('active');
+    });
+    
+    // Add active class to the selected button
+    activeButton.classList.add('active');
+    
+    // Remove existing size classes
+    this.elements.cameraSection.classList.remove('camera-small', 'camera-medium', 'camera-large');
+    
+    // Add new size class
+    const size = activeButton.id.replace('camera-', '');
+    this.elements.cameraSection.classList.add(`camera-${size}`);
+  }
+
+  updateBrushSizeDisplay() {
+    if (this.elements.brushSizeDisplay) {
+      this.elements.brushSizeDisplay.textContent = this.elements.brushSize.value;
     }
   }
 

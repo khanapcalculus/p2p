@@ -1,134 +1,215 @@
+class WhiteboardApp {
+  constructor() {
+    this.whiteboard = new Whiteboard();
+    this.peer = new PeerConnection();
+    this.ui = new UI();
+    this.isConnected = false;
+    
+    this.setupIntegrations();
+  }
+
+  setupIntegrations() {
+    // Setup UI callbacks
+    this.ui.setCallbacks({
+      onToolChange: (tool) => this.whiteboard.setTool(tool),
+      onColorChange: (color) => this.whiteboard.setColor(color),
+      onBrushSizeChange: (size) => this.whiteboard.setBrushSize(size),
+      onClearCanvas: () => this.clearCurrentPage(),
+      onToggleVideo: () => this.peer.toggleVideo(),
+      onToggleAudio: () => this.peer.toggleAudio(),
+      onShareScreen: () => this.peer.shareScreen(),
+      onCreateRoom: (roomId, userName, userRole) => this.createRoom(roomId, userName, userRole),
+      onJoinRoom: (roomId, userName, userRole) => this.joinRoom(roomId, userName, userRole),
+      onAddPage: () => this.addPage(),
+      onDeletePage: () => this.deletePage(),
+      onPrevPage: () => this.prevPage(),
+      onNextPage: () => this.nextPage()
+    });
+
+    // Setup whiteboard callbacks
+    this.whiteboard.setChangeCallback((data) => this.onCanvasChange(data));
+    this.whiteboard.setPagesChangeCallback((data) => this.onPagesChange(data));
+    this.whiteboard.setPageChangeCallback((data) => this.onPageChange(data));
+    this.whiteboard.setContinuousDrawingCallback((data) => this.onContinuousDrawing(data));
+
+    // Setup peer callbacks
+    this.peer.setCallbacks({
+      onConnectionEstablished: () => this.onPeerConnected(),
+      onConnectionClosed: () => this.onPeerDisconnected(),
+      onDataReceived: (data) => this.onDataReceived(data),
+      onRemoteStreamReceived: (stream) => this.ui.setRemoteStream(stream),
+      onStatusChange: (status) => this.ui.updateStatus(status)
+    });
+
+    // Initialize signaling
+    this.peer.initializeSignaling('https://serverp2p.onrender.com');
+  }
+
+  async createRoom(roomId, userName, userRole) {
+    try {
+      this.ui.updateStatus('Setting up camera and microphone...');
+      
+      // Get local media stream
+      const stream = await this.peer.getLocalStream(true, true);
+      if (stream) {
+        this.ui.setLocalStream(stream);
+      }
+      
+      // Join the room
+      this.peer.joinRoom(roomId, `${userName} (${userRole})`);
+      
+    } catch (error) {
+      console.error('Error creating room:', error);
+      this.ui.updateStatus('Error creating room');
+    }
+  }
+
+  async joinRoom(roomId, userName, userRole) {
+    try {
+      this.ui.updateStatus('Setting up camera and microphone...');
+      
+      // Get local media stream
+      const stream = await this.peer.getLocalStream(true, true);
+      if (stream) {
+        this.ui.setLocalStream(stream);
+      }
+      
+      // Join the room
+      this.peer.joinRoom(roomId, `${userName} (${userRole})`);
+      
+    } catch (error) {
+      console.error('Error joining room:', error);
+      this.ui.updateStatus('Error joining room');
+    }
+  }
+
+  onPeerConnected() {
+    this.isConnected = true;
+    this.ui.updateStatus('Connected to peer - Ready to collaborate!');
+    
+    // Send current whiteboard state to new peer
+    this.syncWhiteboard();
+  }
+
+  onPeerDisconnected() {
+    this.isConnected = false;
+    this.ui.updateStatus('Peer disconnected');
+  }
+
+  onCanvasChange(data) {
+    if (this.isConnected) {
+      this.peer.sendData(JSON.stringify({
+        type: 'canvas-change',
+        ...data
+      }));
+    }
+  }
+
+  onPagesChange(data) {
+    if (this.isConnected) {
+      this.peer.sendData(JSON.stringify({
+        type: 'pages-structure',
+        ...data
+      }));
+    }
+  }
+
+  onPageChange(data) {
+    if (this.isConnected) {
+      this.peer.sendData(JSON.stringify({
+        type: 'page-change',
+        ...data
+      }));
+      
+      // Update UI
+      this.ui.updatePageDisplay(data.currentPage + 1, data.totalPages);
+    } else {
+      // Update UI locally if not connected
+      this.ui.updatePageDisplay(data.currentPage + 1, data.totalPages);
+    }
+  }
+
+  onContinuousDrawing(data) {
+    if (this.isConnected) {
+      this.peer.sendContinuousDrawing(data);
+    }
+  }
+
+  onDataReceived(jsonData) {
+    try {
+      const data = JSON.parse(jsonData);
+      
+      switch (data.type) {
+        case 'canvas-change':
+          this.whiteboard.updateFromData(data);
+          break;
+        case 'pages-structure':
+          this.whiteboard.syncPageStructure(data);
+          this.ui.updatePageDisplay(this.whiteboard.currentPageIndex + 1, this.whiteboard.pages.length);
+          break;
+        case 'page-change':
+          this.whiteboard.goToPage(data.pageIndex);
+          this.ui.updatePageDisplay(data.currentPage + 1, data.totalPages);
+          break;
+        case 'continuous-drawing':
+          this.whiteboard.receiveContinuousDrawing(data);
+          break;
+        default:
+          console.log('Unknown data type:', data.type);
+      }
+    } catch (error) {
+      console.error('Error parsing received data:', error);
+    }
+  }
+
+  syncWhiteboard() {
+    // Send current page structure
+    const pagesData = {
+      type: 'pages-structure',
+      pageStructure: this.whiteboard.getPageStructure(),
+      currentPageIndex: this.whiteboard.currentPageIndex
+    };
+    this.peer.sendData(JSON.stringify(pagesData));
+
+    // Send current page data
+    const currentPageData = {
+      type: 'canvas-change',
+      pageData: JSON.stringify(this.whiteboard.canvas),
+      pageIndex: this.whiteboard.currentPageIndex
+    };
+    this.peer.sendData(JSON.stringify(currentPageData));
+  }
+
+  clearCurrentPage() {
+    this.whiteboard.clearCurrentPage();
+  }
+
+  addPage() {
+    this.whiteboard.addNewPage();
+  }
+
+  deletePage() {
+    if (this.whiteboard.pages.length > 1) {
+      this.whiteboard.deletePage(this.whiteboard.currentPageIndex);
+    }
+  }
+
+  prevPage() {
+    if (this.whiteboard.currentPageIndex > 0) {
+      this.whiteboard.goToPage(this.whiteboard.currentPageIndex - 1);
+    }
+  }
+
+  nextPage() {
+    if (this.whiteboard.currentPageIndex < this.whiteboard.pages.length - 1) {
+      this.whiteboard.goToPage(this.whiteboard.currentPageIndex + 1);
+    }
+  }
+}
+
+// Initialize the application when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize components
-  const whiteboard = new Whiteboard();
-  const peerConnection = new PeerConnection();
-  const ui = new UI();
-  
-  // Signaling server URL (update with your Render.com URL when deployed)
-  const signalingServer = 'https://serverp2p.onrender.com';
-  
-  // Set up UI callbacks
-  ui.setCallbacks({
-    onToolChange: (tool) => {
-      whiteboard.setTool(tool);
-    },
-    onColorChange: (color) => {
-      whiteboard.setColor(color);
-    },
-    onBrushSizeChange: (size) => {
-      whiteboard.setBrushSize(size);
-    },
-    onClearCanvas: () => {
-      whiteboard.clearCurrentPage();
-    },
-    onAddPage: () => {
-      const newPage = whiteboard.addNewPage();
-      ui.updatePageDisplay(whiteboard.currentPageIndex + 1, whiteboard.pages.length);
-    },
-    onDeletePage: () => {
-      if (confirm('Are you sure you want to delete this page?')) {
-        const success = whiteboard.deletePage(whiteboard.currentPageIndex);
-        if (success) {
-          ui.updatePageDisplay(whiteboard.currentPageIndex + 1, whiteboard.pages.length);
-        }
-      }
-    },
-    onPrevPage: () => {
-      if (whiteboard.goToPage(whiteboard.currentPageIndex - 1)) {
-        ui.updatePageDisplay(whiteboard.currentPageIndex + 1, whiteboard.pages.length);
-      }
-    },
-    onNextPage: () => {
-      if (whiteboard.goToPage(whiteboard.currentPageIndex + 1)) {
-        ui.updatePageDisplay(whiteboard.currentPageIndex + 1, whiteboard.pages.length);
-      }
-    },
-    onToggleVideo: () => {
-      return peerConnection.toggleVideo();
-    },
-    onToggleAudio: () => {
-      return peerConnection.toggleAudio();
-    },
-    onShareScreen: async () => {
-      const screenStream = await peerConnection.shareScreen();
-      if (screenStream) {
-        ui.setLocalStream(screenStream);
-      }
-    },
-    onCreateRoom: async (roomId, userName, role) => {
-      // Initialize media with graceful fallback for tablets
-      const stream = await peerConnection.getLocalStream(true, true);
-      if (stream) {
-        ui.setLocalStream(stream);
-      }
-      
-      // Initialize signaling
-      peerConnection.initializeSignaling(signalingServer);
-      
-      // Join room as initiator
-      peerConnection.joinRoom(roomId, userName);
-    },
-    onJoinRoom: async (roomId, userName, role) => {
-      // Initialize media with graceful fallback for tablets
-      const stream = await peerConnection.getLocalStream(true, true);
-      if (stream) {
-        ui.setLocalStream(stream);
-      }
-      
-      // Initialize signaling
-      peerConnection.initializeSignaling(signalingServer);
-      
-      // Join existing room
-      peerConnection.joinRoom(roomId, userName);
-    }
-  });
-  
-  // Set up peer connection callbacks
-  peerConnection.setCallbacks({
-    onConnectionEstablished: () => {
-      ui.updateStatus('Connected to remote peer');
-    },
-    onConnectionClosed: () => {
-      ui.updateStatus('Connection closed');
-      ui.setRemoteStream(null);
-    },
-    onDataReceived: (data) => {
-      // Update whiteboard with received data
-      const parsedData = JSON.parse(data);
-      whiteboard.updateFromData(parsedData);
-      
-      // Update UI page display
-      if (parsedData.pageStructure) {
-        ui.updatePageDisplay(
-          whiteboard.currentPageIndex + 1, 
-          whiteboard.pages.length
-        );
-      }
-    },
-    onRemoteStreamReceived: (stream) => {
-      ui.setRemoteStream(stream);
-    },
-    onStatusChange: (status) => {
-      ui.updateStatus(status);
-    }
-  });
-  
-  // Set up whiteboard callbacks
-  whiteboard.setChangeCallback((data) => {
-    // Send page data to peer
-    peerConnection.sendData(JSON.stringify(data));
-  });
-  
-  whiteboard.setPageChangeCallback((pageIndex, page) => {
-    // Update UI when page changes
-    ui.updatePageDisplay(pageIndex + 1, whiteboard.pages.length);
-  });
-  
-  whiteboard.setPagesChangeCallback((pageStructure) => {
-    // Update UI when pages are added/removed
-    ui.updatePageDisplay(
-      whiteboard.currentPageIndex + 1, 
-      whiteboard.pages.length
-    );
-  });
+  console.log('Initializing Whiteboard App...');
+  window.app = new WhiteboardApp();
+  console.log('Whiteboard App initialized successfully');
 });
