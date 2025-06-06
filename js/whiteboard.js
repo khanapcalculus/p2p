@@ -199,19 +199,25 @@ class Whiteboard {
         this.canvas.freeDrawingBrush.color = this.color;
         this.canvas.freeDrawingBrush.width = this.brushSize;
         this.canvas.defaultCursor = 'crosshair';
+        this.canvas.selection = true;
         break;
       case 'eraser':
         this.canvas.isDrawingMode = true;
         this.canvas.freeDrawingBrush.color = '#ffffff';
         this.canvas.freeDrawingBrush.width = this.brushSize * 2;
         this.canvas.defaultCursor = 'crosshair';
+        this.canvas.selection = true;
         break;
       case 'pan':
         this.isPanning = true;
         this.canvas.defaultCursor = 'grab';
+        this.canvas.selection = false; // Disable selection when panning
+        this.canvas.forEachObject(obj => obj.selectable = false); // Make objects non-selectable
         break;
       default:
         this.canvas.defaultCursor = 'default';
+        this.canvas.selection = true;
+        this.canvas.forEachObject(obj => obj.selectable = true); // Re-enable selection
         break;
     }
   }
@@ -233,12 +239,18 @@ class Whiteboard {
   setupCanvasEvents() {
     let startPoint;
     let shape;
+    let isPanningActive = false;
 
     this.canvas.on('mouse:down', (options) => {
       if (this.isPanning) {
+        isPanningActive = true;
         this.canvas.defaultCursor = 'grabbing';
         this.lastPanPoint = { x: options.e.clientX, y: options.e.clientY };
-        return;
+        
+        // Prevent any default fabric.js behavior
+        options.e.preventDefault();
+        options.e.stopPropagation();
+        return false;
       }
       
       if (this.currentTool === 'pencil' || this.currentTool === 'eraser') return;
@@ -303,7 +315,7 @@ class Whiteboard {
     });
 
     this.canvas.on('mouse:move', (options) => {
-      if (this.isPanning && this.lastPanPoint) {
+      if (this.isPanning && isPanningActive && this.lastPanPoint) {
         const deltaX = options.e.clientX - this.lastPanPoint.x;
         const deltaY = options.e.clientY - this.lastPanPoint.y;
         
@@ -313,7 +325,11 @@ class Whiteboard {
         
         this.canvas.setViewportTransform(vpt);
         this.lastPanPoint = { x: options.e.clientX, y: options.e.clientY };
-        return;
+        
+        // Prevent any default fabric.js behavior
+        options.e.preventDefault();
+        options.e.stopPropagation();
+        return false;
       }
       
       if (!this.isDrawing || this.currentTool === 'text') return;
@@ -355,9 +371,10 @@ class Whiteboard {
 
     this.canvas.on('mouse:up', () => {
       if (this.isPanning) {
+        isPanningActive = false;
         this.canvas.defaultCursor = 'grab';
         this.lastPanPoint = null;
-        return;
+        return false;
       }
       
       this.isDrawing = false;
