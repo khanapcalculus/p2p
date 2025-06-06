@@ -222,8 +222,8 @@ button:hover {
 
 /* Custom scrollbar styling for desktop */
 .whiteboard-container::-webkit-scrollbar {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
 }
 
 .whiteboard-container::-webkit-scrollbar-track {
@@ -588,6 +588,9 @@ video {
     /* Enhanced touch scrolling */
     overscroll-behavior: contain;
     touch-action: pan-x pan-y;
+    /* Force scrollbar visibility on mobile */
+    scrollbar-width: thick; /* Firefox */
+    scrollbar-color: #495057 #e9ecef; /* Firefox */
   }
   
   .camera-section {
@@ -644,30 +647,34 @@ video {
     min-height: 44px; /* Touch target size */
   }
   
-  /* Enhanced scrollbar for tablet/mobile */
+  /* Enhanced scrollbar for tablet/mobile - Much wider for touch */
   .whiteboard-container::-webkit-scrollbar {
-    width: 18px;
-    height: 18px;
+    width: 30px;
+    height: 30px;
   }
 
   .whiteboard-container::-webkit-scrollbar-track {
-    background: #f8f9fa;
-    border-radius: 9px;
+    background: #e9ecef;
+    border-radius: 15px;
+    border: 2px solid #f8f9fa;
   }
   
   .whiteboard-container::-webkit-scrollbar-thumb {
     background: #495057;
-    border-radius: 9px;
-    border: 3px solid #f8f9fa;
-    min-height: 40px; /* Minimum thumb size for touch */
+    border-radius: 15px;
+    border: 5px solid #f8f9fa;
+    min-height: 60px; /* Larger minimum thumb size for touch */
+    min-width: 60px;
   }
 
   .whiteboard-container::-webkit-scrollbar-thumb:active {
-    background: #343a40;
+    background: #212529;
+    border: 3px solid #f8f9fa;
   }
 
   .whiteboard-container::-webkit-scrollbar-corner {
-    background: #f8f9fa;
+    background: #e9ecef;
+    border-radius: 15px;
   }
   
   /* Prevent zoom on inputs */
