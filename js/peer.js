@@ -48,7 +48,14 @@ class PeerConnection {
           console.log(`Should be initiator: ${shouldBeInitiator}`);
           
           this.isInitiator = shouldBeInitiator;
-          this.connectToPeers(otherUsers);
+          
+          // Add a small delay for non-initiators to prevent race conditions
+          if (shouldBeInitiator) {
+            this.connectToPeers(otherUsers);
+          } else {
+            console.log('Non-initiator waiting before connecting...');
+            setTimeout(() => this.connectToPeers(otherUsers), 500);
+          }
         } else {
           this.isInitiator = true;
           this.updateStatus('Waiting for someone to join...');
@@ -309,12 +316,19 @@ class PeerConnection {
       console.log('Connecting to peer:', this.remotePeerInfo);
       console.log('I am initiator:', this.isInitiator);
       
+      // Check if we already have a peer connection (might have received offer first)
+      if (this.peer && this.peer.connectionState !== 'closed') {
+        console.log('Already have peer connection, skipping initialization');
+        return;
+      }
+      
       // Initialize peer connection
       this.initializePeerConnection();
       
       // Only create offer if we are the initiator
       if (this.isInitiator) {
         try {
+          console.log('Creating offer as initiator...');
           const offer = await this.peer.createOffer();
           await this.peer.setLocalDescription(offer);
           
@@ -330,7 +344,7 @@ class PeerConnection {
           this.updateStatus('Error creating connection offer', 'error');
         }
       } else {
-        console.log('Waiting for offer from initiator...');
+        console.log('Non-initiator waiting for offer...');
         this.updateStatus('Waiting for connection from peer...', 'info');
       }
     }
@@ -341,23 +355,27 @@ class PeerConnection {
     console.log('Received offer from:', payload.caller);
     this.remoteUserId = payload.caller;
     
-    // If we already have a peer connection and we're the initiator, ignore this offer
-    // to prevent signaling conflicts
-    if (this.peer && this.isInitiator && this.peer.signalingState !== 'stable') {
-      console.log('Ignoring offer - already have connection as initiator');
-      return;
+    // CRITICAL: Always accept offers and become non-initiator to resolve conflicts
+    // If we were trying to be initiator, abandon that and respond to this offer instead
+    if (this.peer) {
+      console.log('Received offer while having peer connection - resetting to handle offer');
+      this.peer.close();
+      this.peer = null;
     }
     
+    console.log('Accepting offer and becoming non-initiator');
     this.isInitiator = false; // Force non-initiator when receiving offer
     
-    // Only initialize if we don't have a peer connection yet
-    if (!this.peer) {
-      this.initializePeerConnection();
-    }
+    // Initialize fresh peer connection to handle this offer
+    this.initializePeerConnection();
     
     try {
       console.log('Setting remote description with offer');
       await this.peer.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+      
+      // Process any pending ICE candidates now that we have remote description
+      await this.processPendingIceCandidates();
+      
       console.log('Creating answer');
       const answer = await this.peer.createAnswer();
       console.log('Setting local description with answer');
@@ -389,6 +407,10 @@ class PeerConnection {
     try {
       console.log('Setting remote description with answer');
       await this.peer.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+      
+      // Process any pending ICE candidates now that we have remote description
+      await this.processPendingIceCandidates();
+      
       console.log('Answer processed successfully');
       this.updateStatus('Connection established with remote peer');
     } catch (error) {
@@ -403,7 +425,13 @@ class PeerConnection {
     
     // Only process ICE candidates if we have a peer connection and remote description is set
     if (!this.peer || !this.peer.remoteDescription) {
-      console.log('Ignoring ICE candidate - no peer connection or remote description');
+      console.log('Ignoring ICE candidate - no peer connection or remote description yet');
+      // Store candidates for later if we don't have remote description yet
+      if (!this.pendingIceCandidates) {
+        this.pendingIceCandidates = [];
+      }
+      this.pendingIceCandidates.push(payload.candidate);
+      console.log('Stored ICE candidate for later processing');
       return;
     }
     
@@ -412,6 +440,25 @@ class PeerConnection {
       console.log('ICE candidate added successfully');
     } catch (error) {
       console.error('Error adding ICE candidate:', error);
+      // Don't throw error, just log it as ICE candidates can fail normally
+    }
+  }
+
+  // Process any pending ICE candidates after setting remote description
+  async processPendingIceCandidates() {
+    if (this.pendingIceCandidates && this.pendingIceCandidates.length > 0) {
+      console.log(`Processing ${this.pendingIceCandidates.length} pending ICE candidates`);
+      
+      for (const candidate of this.pendingIceCandidates) {
+        try {
+          await this.peer.addIceCandidate(new RTCIceCandidate(candidate));
+          console.log('Pending ICE candidate added successfully');
+        } catch (error) {
+          console.error('Error adding pending ICE candidate:', error);
+        }
+      }
+      
+      this.pendingIceCandidates = [];
     }
   }
 
