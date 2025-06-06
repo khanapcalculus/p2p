@@ -218,7 +218,8 @@ class WhiteboardApp {
           break;
         case 'page-change':
           if (data.pageIndex !== undefined) {
-            this.whiteboard.goToPage(data.pageIndex);
+            // Use skipCallback=true to prevent echo back to sender
+            this.whiteboard.goToPage(data.pageIndex, true);
             // Update UI with current whiteboard state
             this.ui.updatePageDisplay(this.whiteboard.currentPageIndex + 1, this.whiteboard.pages.length);
           }
@@ -268,13 +269,15 @@ class WhiteboardApp {
 
   prevPage() {
     if (this.whiteboard.currentPageIndex > 0) {
-      this.whiteboard.goToPage(this.whiteboard.currentPageIndex - 1);
+      // Local navigation - allow callback to sync with peer
+      this.whiteboard.goToPage(this.whiteboard.currentPageIndex - 1, false);
     }
   }
 
   nextPage() {
     if (this.whiteboard.currentPageIndex < this.whiteboard.pages.length - 1) {
-      this.whiteboard.goToPage(this.whiteboard.currentPageIndex + 1);
+      // Local navigation - allow callback to sync with peer
+      this.whiteboard.goToPage(this.whiteboard.currentPageIndex + 1, false);
     }
   }
 

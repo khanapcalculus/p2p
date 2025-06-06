@@ -90,11 +90,23 @@ class Whiteboard {
     
     this.pages.push(newPage);
     this.currentPageIndex = this.pages.length - 1;
-    this.loadPage(this.currentPageIndex);
+    
+    // Load the new page without triggering page change callback to prevent loops
+    this.loadPage(this.currentPageIndex, false);
     
     // Notify about page structure change
     if (typeof this.onPagesChange === 'function') {
       this.onPagesChange(this.getPageStructure());
+    }
+    
+    // Send a single page change notification for the new page
+    if (typeof this.onPageChange === 'function') {
+      this.onPageChange({
+        pageIndex: this.currentPageIndex,
+        currentPage: this.currentPageIndex,
+        totalPages: this.pages.length,
+        page: newPage
+      });
     }
     
     return newPage;
@@ -140,7 +152,7 @@ class Whiteboard {
     return true;
   }
 
-  goToPage(pageIndex) {
+  goToPage(pageIndex, skipCallback = false) {
     if (pageIndex < 0 || pageIndex >= this.pages.length) {
       return false;
     }
@@ -150,7 +162,7 @@ class Whiteboard {
     
     // Load new page
     this.currentPageIndex = pageIndex;
-    this.loadPage(pageIndex);
+    this.loadPage(pageIndex, skipCallback);
     
     return true;
   }
@@ -161,7 +173,7 @@ class Whiteboard {
     }
   }
 
-  loadPage(pageIndex) {
+  loadPage(pageIndex, skipCallback = false) {
     if (pageIndex < 0 || pageIndex >= this.pages.length) {
       return;
     }
@@ -186,8 +198,8 @@ class Whiteboard {
     // Update page display
     this.updatePageDisplay();
     
-    // Emit page change
-    if (typeof this.onPageChange === 'function') {
+    // Only emit page change if not skipping callback (prevents infinite loops)
+    if (!skipCallback && typeof this.onPageChange === 'function') {
       this.onPageChange({
         pageIndex: pageIndex,
         currentPage: this.currentPageIndex,
