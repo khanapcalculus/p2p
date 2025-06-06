@@ -70,27 +70,38 @@ class PeerConnection {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
         {
           urls: 'turn:openrelay.metered.ca:80',
           username: 'openrelayproject',
           credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
         }
-      ]
+      ],
+      iceCandidatePoolSize: 10
     };
     
     this.peer = new RTCPeerConnection(configuration);
     
     // Set up event handlers for the peer connection
     this.peer.onicecandidate = (event) => {
-      console.log('ICE candidate event:', event.candidate);
       if (event.candidate) {
         console.log('Sending ICE candidate to:', this.remoteUserId);
         this.socket.emit('ice-candidate', {
           target: this.remoteUserId,
           candidate: event.candidate
         });
-      } else {
-        console.log('All ICE candidates have been sent');
       }
     };
     
@@ -115,11 +126,21 @@ class PeerConnection {
     };
 
     this.peer.onicecandidateerror = (event) => {
-      console.error('ICE candidate error:', event);
+      // Only log errors that might be significant, not all failed candidates
+      if (event.errorCode !== 701) { // 701 is a common "host candidate" error that's usually not critical
+        console.warn('ICE candidate error (non-critical):', event.errorText || 'Unknown error');
+      }
     };
 
     this.peer.oniceconnectionstatechange = () => {
       console.log(`ICE connection state: ${this.peer.iceConnectionState}`);
+      if (this.peer.iceConnectionState === 'connected' || this.peer.iceConnectionState === 'completed') {
+        this.updateStatus('P2P connection established');
+      } else if (this.peer.iceConnectionState === 'failed') {
+        this.updateStatus('P2P connection failed - trying to reconnect...');
+        // Try to restart ICE
+        this.peer.restartIce();
+      }
     };
 
     this.peer.onicegatheringstatechange = () => {
@@ -129,7 +150,10 @@ class PeerConnection {
     // Set up data channel
     if (this.isInitiator) {
       console.log('Creating data channel as initiator');
-      this.dataChannel = this.peer.createDataChannel('whiteboard');
+      this.dataChannel = this.peer.createDataChannel('whiteboard', {
+        ordered: true,
+        maxRetransmits: 3
+      });
       console.log('Data channel created:', this.dataChannel);
       this.setupDataChannel();
     } else {
@@ -382,8 +406,19 @@ class PeerConnection {
   // Send data through the data channel
   sendData(data) {
     if (this.dataChannel && this.dataChannel.readyState === 'open') {
-      this.dataChannel.send(data);
-      return true;
+      try {
+        // Check if data channel buffer is getting full
+        if (this.dataChannel.bufferedAmount > 64 * 1024) { // 64KB threshold
+          console.warn('Data channel buffer is getting full, skipping update');
+          return false;
+        }
+        
+        this.dataChannel.send(data);
+        return true;
+      } catch (error) {
+        console.error('Error sending data:', error);
+        return false;
+      }
     }
     return false;
   }

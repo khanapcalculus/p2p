@@ -13,6 +13,7 @@ class Whiteboard {
       width: 1000,
       height: 2000  // A4-like ratio but manageable size
     };
+    this.changeTimeout = null; // For debouncing changes
     this.initialize();
   }
 
@@ -34,6 +35,10 @@ class Whiteboard {
     // Set canvas to manageable size
     this.canvas.setWidth(this.canvasSize.width);
     this.canvas.setHeight(this.canvasSize.height);
+    
+    // Performance optimizations
+    this.canvas.renderOnAddRemove = false; // Disable auto-render on add/remove
+    this.canvas.skipOffscreen = true; // Skip rendering offscreen objects
     
     // Set viewport container
     const container = document.getElementById('whiteboard').parentElement;
@@ -236,6 +241,24 @@ class Whiteboard {
     }
   }
 
+  // Debounced change notification to prevent too many updates
+  notifyChange() {
+    if (this.changeTimeout) {
+      clearTimeout(this.changeTimeout);
+    }
+    
+    this.changeTimeout = setTimeout(() => {
+      this.saveCurrentPage();
+      if (typeof this.onCanvasChange === 'function') {
+        this.onCanvasChange({
+          pageIndex: this.currentPageIndex,
+          pageData: JSON.stringify(this.canvas),
+          pageStructure: this.getPageStructure()
+        });
+      }
+    }, 100); // Debounce by 100ms
+  }
+
   setupCanvasEvents() {
     let startPoint;
     let shape;
@@ -306,11 +329,13 @@ class Whiteboard {
           this.canvas.setActiveObject(shape);
           shape.enterEditing();
           shape.selectAll();
+          this.canvas.renderAll(); // Manual render after add
           break;
       }
 
-      if (this.currentTool !== 'text') {
+      if (this.currentTool !== 'text' && shape) {
         this.canvas.add(shape);
+        this.canvas.renderAll(); // Manual render after add
       }
     });
 
@@ -324,6 +349,7 @@ class Whiteboard {
         vpt[5] += deltaY;
         
         this.canvas.setViewportTransform(vpt);
+        this.canvas.requestRenderAll(); // Use requestRenderAll for better performance
         this.lastPanPoint = { x: options.e.clientX, y: options.e.clientY };
         
         // Prevent any default fabric.js behavior
@@ -366,7 +392,7 @@ class Whiteboard {
           break;
       }
 
-      this.canvas.renderAll();
+      this.canvas.requestRenderAll(); // Use requestRenderAll for better performance
     });
 
     this.canvas.on('mouse:up', () => {
@@ -380,27 +406,18 @@ class Whiteboard {
       this.isDrawing = false;
       this.canvas.renderAll();
       
-      // Auto-save current page and emit changes
-      this.saveCurrentPage();
-      if (typeof this.onCanvasChange === 'function') {
-        this.onCanvasChange({
-          pageIndex: this.currentPageIndex,
-          pageData: JSON.stringify(this.canvas),
-          pageStructure: this.getPageStructure()
-        });
-      }
+      // Use debounced change notification
+      this.notifyChange();
+    });
+
+    // Handle drawing completion (for pencil/eraser)
+    this.canvas.on('path:created', () => {
+      this.notifyChange();
     });
 
     // Handle object modifications
     this.canvas.on('object:modified', () => {
-      this.saveCurrentPage();
-      if (typeof this.onCanvasChange === 'function') {
-        this.onCanvasChange({
-          pageIndex: this.currentPageIndex,
-          pageData: JSON.stringify(this.canvas),
-          pageStructure: this.getPageStructure()
-        });
-      }
+      this.notifyChange();
     });
   }
 
