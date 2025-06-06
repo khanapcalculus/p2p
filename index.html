@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P2P Whiteboard</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>P2P Whiteboard</h1>
+      <div class="controls">
+        <div class="room-controls">
+          <input type="text" id="room-id" placeholder="Room ID">
+          <button id="create-btn">Create Room</button>
+          <button id="join-btn">Join Room</button>
+        </div>
+        <div class="user-controls">
+          <input type="text" id="user-name" placeholder="Your Name">
+          <select id="user-role">
+            <option value="teacher">Teacher</option>
+            <option value="student">Student</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <div class="main-content">
+      <div class="whiteboard-container">
+        <canvas id="whiteboard"></canvas>
+        <div class="drawing-tools">
+          <button id="pencil-tool" class="tool active">Pencil</button>
+          <button id="line-tool" class="tool">Line</button>
+          <button id="rect-tool" class="tool">Rectangle</button>
+          <button id="circle-tool" class="tool">Circle</button>
+          <button id="text-tool" class="tool">Text</button>
+          <button id="eraser-tool" class="tool">Eraser</button>
+          <button id="clear-canvas">Clear All</button>
+          <div class="color-picker">
+            <input type="color" id="color-selector" value="#000000">
+          </div>
+          <div class="brush-size">
+            <input type="range" id="brush-size" min="1" max="20" value="3">
+          </div>
+        </div>
+      </div>
+      
+      <div class="video-container">
+        <div class="video-wrapper">
+          <video id="local-video" autoplay muted></video>
+          <div class="video-label">You</div>
+        </div>
+        <div class="video-wrapper">
+          <video id="remote-video" autoplay></video>
+          <div class="video-label">Remote User</div>
+        </div>
+        <div class="video-controls">
+          <button id="toggle-video">Toggle Video</button>
+          <button id="toggle-audio">Toggle Audio</button>
+          <button id="share-screen">Share Screen</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="connection-status">
+      <div id="status-message">Not connected</div>
+    </div>
+  </div>
+
+  <!-- External Libraries -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+  
+  <!-- Application Scripts -->
+  <script src="js/whiteboard.js"></script>
+  <script src="js/peer.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
