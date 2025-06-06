@@ -84,6 +84,9 @@ class WhiteboardApp {
 
   async attemptMediaAccess() {
     try {
+      // For tablets, we might need to request media access with user gesture
+      console.log('Attempting media access...');
+      
       // First attempt
       const stream = await this.peer.getLocalStream(true, true);
       if (stream) {
@@ -93,40 +96,44 @@ class WhiteboardApp {
       
       // If no stream, inform user and continue
       console.log('No media stream obtained - continuing without media');
+      this.ui.updateStatus('📱 Camera/microphone not available. Click "🔄 Retry Camera" to try again.', 'warning');
       return null;
       
     } catch (error) {
       console.error('Media access failed:', error);
       
       // On tablets, sometimes a second attempt after user interaction works
-      this.ui.updateStatus('Camera access failed. Click "Retry Camera" if needed.');
+      this.ui.updateStatus('📱 Camera access failed on first try. This is common on tablets.<br/>Click "🔄 Retry Camera" to try again.', 'warning');
       return null;
     }
   }
 
   async retryMediaAccess() {
-    this.ui.updateStatus('Retrying camera access...', 'info');
+    this.ui.updateStatus('🔄 Retrying camera and microphone access...', 'info');
     
     try {
+      // On tablets, try with a slight delay to ensure user gesture is processed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const stream = await this.peer.getLocalStream(true, true);
       if (stream) {
         this.ui.setLocalStream(stream);
-        this.ui.updateStatus('Camera access successful!', 'success');
+        this.ui.updateStatus('✅ Camera and microphone access successful!', 'success');
         
         // Ensure media is properly connected to peer if connected
         if (this.peer.peer && this.peer.peer.connectionState === 'connected') {
           this.peer.ensureMediaConnection();
-          this.ui.updateStatus('Media connected to peer', 'success');
+          this.ui.updateStatus('📹🎤 Media connected to peer successfully!', 'success');
         }
         
         return true;
       } else {
-        this.ui.updateStatus('Camera access failed - continuing without media', 'warning');
+        this.ui.updateStatus('⚠️ Camera/microphone access failed.<br/>Please check your device permissions and try again.<br/>The whiteboard works without media.', 'warning');
         return false;
       }
     } catch (error) {
       console.error('Retry media access failed:', error);
-      this.ui.updateStatus('Camera access failed - check browser permissions', 'error');
+      this.ui.updateStatus(`❌ Camera access failed: ${error.message}<br/>Please check browser permissions in Settings.`, 'error');
       return false;
     }
   }

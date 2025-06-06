@@ -217,7 +217,8 @@ class UI {
   }
 
   updateStatus(message, type = 'normal') {
-    this.elements.statusMessage.textContent = message;
+    // Use innerHTML to support HTML content like <br/> tags and emojis
+    this.elements.statusMessage.innerHTML = message;
     
     // Remove existing status classes
     this.elements.statusMessage.classList.remove('error', 'success', 'warning');

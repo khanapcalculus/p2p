@@ -394,32 +394,46 @@ class PeerConnection {
       // Check if media devices are available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.warn('Media devices not supported');
-        this.updateStatus('Media not supported on this device');
+        this.updateStatus('Media not supported on this device', 'warning');
         return null;
       }
 
-      // Tablet-friendly video constraints
+      // Enhanced tablet-friendly video constraints
       const videoConstraints = videoEnabled ? {
-        width: { ideal: 640, max: 1280 },
-        height: { ideal: 480, max: 720 },
-        facingMode: 'user'
+        width: { 
+          min: 320,
+          ideal: 640, 
+          max: 1280 
+        },
+        height: { 
+          min: 240,
+          ideal: 480, 
+          max: 720 
+        },
+        facingMode: 'user',
+        frameRate: { ideal: 30, max: 60 }
       } : false;
 
+      // Enhanced audio constraints for tablets
       const audioConstraints = audioEnabled ? {
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true
+        autoGainControl: true,
+        sampleRate: { ideal: 48000 },
+        channelCount: { ideal: 1 }
       } : false;
 
-      // Try with both video and audio first
+      this.updateStatus('Requesting camera and microphone access...', 'info');
       console.log('Attempting to access camera and microphone...');
+      
+      // First try: Both video and audio
       try {
         this.localStream = await navigator.mediaDevices.getUserMedia({
           video: videoConstraints,
           audio: audioConstraints
         });
         console.log('Successfully obtained video and audio stream');
-        this.updateStatus('Camera and microphone access granted', 'success');
+        this.updateStatus('Camera and microphone access granted! 📹🎤', 'success');
         
         // Ensure tracks are added to peer connection if it exists
         if (this.peer) {
@@ -430,17 +444,25 @@ class PeerConnection {
       } catch (error) {
         console.warn('Failed to get both video and audio:', error.name, error.message);
         
-                 // Handle specific tablet/mobile errors
-         if (error.name === 'NotAllowedError') {
-           this.updateStatus('Camera/microphone access denied. Please allow in browser settings.', 'error');
-         } else if (error.name === 'NotFoundError') {
-           this.updateStatus('No camera or microphone found', 'warning');
-         } else if (error.name === 'NotReadableError') {
-           this.updateStatus('Camera/microphone is being used by another app', 'warning');
-         }
+        // Handle specific tablet/mobile errors with detailed messages
+        if (error.name === 'NotAllowedError') {
+          this.updateStatus('🚫 Camera/microphone access denied. Please allow permissions in browser settings.', 'error');
+        } else if (error.name === 'NotFoundError') {
+          this.updateStatus('📷 No camera or microphone found on this device', 'warning');
+        } else if (error.name === 'NotReadableError') {
+          this.updateStatus('📱 Camera/microphone is being used by another app. Please close other apps and try again.', 'warning');
+        } else if (error.name === 'AbortError') {
+          this.updateStatus('⚠️ Media access was aborted. Please try again.', 'warning');
+        } else if (error.name === 'OverconstrainedError') {
+          this.updateStatus('🔧 Camera settings not compatible. Trying simpler settings...', 'warning');
+          // Try with simpler constraints
+          return this.trySimpleConstraints(videoEnabled, audioEnabled);
+        } else {
+          this.updateStatus(`❌ Media access error: ${error.message}`, 'error');
+        }
       }
       
-      // Try with video only if audio fails
+      // Second try: Video only if audio fails
       if (videoEnabled) {
         try {
           console.log('Trying video only...');
@@ -449,7 +471,7 @@ class PeerConnection {
             audio: false
           });
           console.log('Video-only stream obtained');
-          this.updateStatus('Video access granted (no audio)');
+          this.updateStatus('📹 Video access granted (no audio available)', 'success');
           
           // Ensure tracks are added to peer connection if it exists
           if (this.peer) {
@@ -460,12 +482,15 @@ class PeerConnection {
         } catch (videoError) {
           console.warn('Failed to get video stream:', videoError.name, videoError.message);
           if (videoError.name === 'NotAllowedError') {
-            this.updateStatus('Camera access denied');
+            this.updateStatus('🚫 Camera access denied', 'error');
+          } else if (videoError.name === 'OverconstrainedError') {
+            // Try simple video constraints
+            return this.trySimpleConstraints(true, false);
           }
         }
       }
       
-      // Try with audio only if video fails
+      // Third try: Audio only if video fails
       if (audioEnabled) {
         try {
           console.log('Trying audio only...');
@@ -474,7 +499,7 @@ class PeerConnection {
             audio: audioConstraints
           });
           console.log('Audio-only stream obtained');
-          this.updateStatus('Audio access granted (no video)');
+          this.updateStatus('🎤 Audio access granted (no video available)', 'success');
           
           // Ensure tracks are added to peer connection if it exists
           if (this.peer) {
@@ -485,19 +510,61 @@ class PeerConnection {
         } catch (audioError) {
           console.warn('Failed to get audio stream:', audioError.name, audioError.message);
           if (audioError.name === 'NotAllowedError') {
-            this.updateStatus('Microphone access denied');
+            this.updateStatus('🚫 Microphone access denied', 'error');
           }
         }
       }
       
       // If all media fails, continue without media but provide helpful message
       console.log('No media available, continuing without audio/video');
-      this.updateStatus('No camera/microphone access - whiteboard works without media. Try refreshing and allowing permissions.');
+      this.updateStatus('📱 No camera/microphone access available.<br/>Whiteboard works without media.<br/>Try clicking "🔄 Retry Camera" or refresh the page.', 'warning');
       return null;
       
     } catch (error) {
       console.error('Unexpected error accessing media:', error);
-      this.updateStatus('Media access error - whiteboard will work without video/audio');
+      this.updateStatus('❌ Media access error - whiteboard will work without video/audio', 'error');
+      return null;
+    }
+  }
+
+  // Try simple constraints for tablet compatibility
+  async trySimpleConstraints(videoEnabled, audioEnabled) {
+    try {
+      console.log('Trying simple constraints for tablet compatibility...');
+      
+      const simpleVideoConstraints = videoEnabled ? {
+        width: 640,
+        height: 480,
+        facingMode: 'user'
+      } : false;
+
+      const simpleAudioConstraints = audioEnabled ? {
+        echoCancellation: true
+      } : false;
+
+      this.localStream = await navigator.mediaDevices.getUserMedia({
+        video: simpleVideoConstraints,
+        audio: simpleAudioConstraints
+      });
+
+      console.log('Simple constraints successful');
+      if (videoEnabled && audioEnabled) {
+        this.updateStatus('📹🎤 Camera and microphone access granted (basic quality)', 'success');
+      } else if (videoEnabled) {
+        this.updateStatus('📹 Camera access granted (basic quality)', 'success');
+      } else if (audioEnabled) {
+        this.updateStatus('🎤 Microphone access granted', 'success');
+      }
+
+      // Ensure tracks are added to peer connection if it exists
+      if (this.peer) {
+        this.ensureMediaConnection();
+      }
+
+      return this.localStream;
+    } catch (error) {
+      console.warn('Simple constraints also failed:', error.name, error.message);
+      this.updateStatus('❌ Unable to access camera/microphone with any settings', 'error');
       return null;
     }
   }
