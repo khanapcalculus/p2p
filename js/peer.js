@@ -40,11 +40,14 @@ class PeerConnection {
         console.log('Other users after filtering:', otherUsers);
         
         if (otherUsers.length > 0) {
-          // If we were already waiting (isInitiator = true), keep initiator status
-          // If we're joining and others exist, we're not the initiator
-          if (this.isInitiator === undefined) {
-            this.isInitiator = false; // Second person joining is not initiator
-          }
+          // Use a deterministic method to decide who is initiator
+          // The user with the "smaller" socketId becomes the initiator
+          const shouldBeInitiator = this.socket.id < otherUsers[0].socketId;
+          
+          console.log(`Comparing socket IDs: mine (${this.socket.id}) vs theirs (${otherUsers[0].socketId})`);
+          console.log(`Should be initiator: ${shouldBeInitiator}`);
+          
+          this.isInitiator = shouldBeInitiator;
           this.connectToPeers(otherUsers);
         } else {
           this.isInitiator = true;
@@ -304,25 +307,31 @@ class PeerConnection {
       }
       
       console.log('Connecting to peer:', this.remotePeerInfo);
+      console.log('I am initiator:', this.isInitiator);
       
       // Initialize peer connection
       this.initializePeerConnection();
       
-      // Create and send offer
-      try {
-        const offer = await this.peer.createOffer();
-        await this.peer.setLocalDescription(offer);
-        
-        console.log('Sending offer to:', this.remoteUserId);
-        this.socket.emit('offer', {
-          target: this.remoteUserId,
-          sdp: offer
-        });
-        
-        this.updateStatus('Connecting to peer...', 'info');
-      } catch (error) {
-        console.error('Error creating offer:', error);
-        this.updateStatus('Error creating connection offer', 'error');
+      // Only create offer if we are the initiator
+      if (this.isInitiator) {
+        try {
+          const offer = await this.peer.createOffer();
+          await this.peer.setLocalDescription(offer);
+          
+          console.log('Sending offer to:', this.remoteUserId);
+          this.socket.emit('offer', {
+            target: this.remoteUserId,
+            sdp: offer
+          });
+          
+          this.updateStatus('Connecting to peer...', 'info');
+        } catch (error) {
+          console.error('Error creating offer:', error);
+          this.updateStatus('Error creating connection offer', 'error');
+        }
+      } else {
+        console.log('Waiting for offer from initiator...');
+        this.updateStatus('Waiting for connection from peer...', 'info');
       }
     }
   }
@@ -331,8 +340,20 @@ class PeerConnection {
   async handleOffer(payload) {
     console.log('Received offer from:', payload.caller);
     this.remoteUserId = payload.caller;
+    
+    // If we already have a peer connection and we're the initiator, ignore this offer
+    // to prevent signaling conflicts
+    if (this.peer && this.isInitiator && this.peer.signalingState !== 'stable') {
+      console.log('Ignoring offer - already have connection as initiator');
+      return;
+    }
+    
     this.isInitiator = false; // Force non-initiator when receiving offer
-    this.initializePeerConnection();
+    
+    // Only initialize if we don't have a peer connection yet
+    if (!this.peer) {
+      this.initializePeerConnection();
+    }
     
     try {
       console.log('Setting remote description with offer');
@@ -358,6 +379,13 @@ class PeerConnection {
   // Handle received answer
   async handleAnswer(payload) {
     console.log('Received answer from:', payload.answerer);
+    
+    // Check if we're in the right state to handle an answer
+    if (!this.peer || this.peer.signalingState !== 'have-local-offer') {
+      console.log('Ignoring answer - not in correct state:', this.peer?.signalingState);
+      return;
+    }
+    
     try {
       console.log('Setting remote description with answer');
       await this.peer.setRemoteDescription(new RTCSessionDescription(payload.sdp));
@@ -372,6 +400,13 @@ class PeerConnection {
   // Handle received ICE candidate
   async handleIceCandidate(payload) {
     console.log('Received ICE candidate from:', payload.sender);
+    
+    // Only process ICE candidates if we have a peer connection and remote description is set
+    if (!this.peer || !this.peer.remoteDescription) {
+      console.log('Ignoring ICE candidate - no peer connection or remote description');
+      return;
+    }
+    
     try {
       await this.peer.addIceCandidate(new RTCIceCandidate(payload.candidate));
       console.log('ICE candidate added successfully');
@@ -446,7 +481,7 @@ class PeerConnection {
         
         // Handle specific tablet/mobile errors with detailed messages
         if (error.name === 'NotAllowedError') {
-          this.updateStatus('🚫 Camera/microphone access denied. Please allow permissions in browser settings.', 'error');
+          this.updateStatus('🚫 Camera/microphone access denied.<br/>📱 <strong>For Tablets:</strong> Close any popup bubbles, notifications, or overlays from other apps, then click "🔄 Retry Camera".', 'error');
         } else if (error.name === 'NotFoundError') {
           this.updateStatus('📷 No camera or microphone found on this device', 'warning');
         } else if (error.name === 'NotReadableError') {
@@ -458,7 +493,7 @@ class PeerConnection {
           // Try with simpler constraints
           return this.trySimpleConstraints(videoEnabled, audioEnabled);
         } else {
-          this.updateStatus(`❌ Media access error: ${error.message}`, 'error');
+          this.updateStatus(`❌ Media access error: ${error.message}<br/>📱 <strong>For Tablets:</strong> Try closing all other apps and refreshing the page.`, 'error');
         }
       }
       

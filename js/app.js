@@ -48,6 +48,12 @@ class WhiteboardApp {
 
   async createRoom(roomId, userName, userRole) {
     try {
+      // Special instruction for tablets
+      if (this.isTabletDevice()) {
+        this.ui.updateStatus('📱 <strong>Tablet Users:</strong> Please close any notification bubbles, overlays, or popup windows from other apps before allowing camera access.', 'info');
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Give user time to read
+      }
+      
       this.ui.updateStatus('Setting up camera and microphone...');
       
       // Get local media stream with retries for tablets
@@ -66,6 +72,12 @@ class WhiteboardApp {
 
   async joinRoom(roomId, userName, userRole) {
     try {
+      // Special instruction for tablets
+      if (this.isTabletDevice()) {
+        this.ui.updateStatus('📱 <strong>Tablet Users:</strong> Please close any notification bubbles, overlays, or popup windows from other apps before allowing camera access.', 'info');
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Give user time to read
+      }
+      
       this.ui.updateStatus('Setting up camera and microphone...');
       
       // Get local media stream with retries for tablets
@@ -259,6 +271,12 @@ class WhiteboardApp {
     if (this.whiteboard.currentPageIndex < this.whiteboard.pages.length - 1) {
       this.whiteboard.goToPage(this.whiteboard.currentPageIndex + 1);
     }
+  }
+
+  // Detect if device is likely a tablet
+  isTabletDevice() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    return /iPad|Android/i.test(userAgent) && 'ontouchstart' in window;
   }
 }
 
