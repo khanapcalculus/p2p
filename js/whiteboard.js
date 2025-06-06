@@ -168,6 +168,11 @@ class Whiteboard {
     
     const page = this.pages[pageIndex];
     
+    // Ensure page has data property
+    if (!page.hasOwnProperty('data')) {
+      page.data = null;
+    }
+    
     if (page.data) {
       // Load existing page data
       this.canvas.loadFromJSON(page.data, () => {
@@ -183,7 +188,12 @@ class Whiteboard {
     
     // Emit page change
     if (typeof this.onPageChange === 'function') {
-      this.onPageChange(pageIndex, page);
+      this.onPageChange({
+        pageIndex: pageIndex,
+        currentPage: this.currentPageIndex,
+        totalPages: this.pages.length,
+        page: page
+      });
     }
   }
 
@@ -499,7 +509,14 @@ class Whiteboard {
   syncPageStructure(remoteStructure) {
     // Add missing pages
     while (this.pages.length < remoteStructure.totalPages) {
-      this.addNewPage();
+      const pageNumber = this.pages.length + 1;
+      const newPage = {
+        id: `page-${pageNumber}`,
+        number: pageNumber,
+        data: null, // Ensure data property exists
+        title: `Page ${pageNumber}`
+      };
+      this.pages.push(newPage);
     }
     
     // Update page display

@@ -211,12 +211,17 @@ class WhiteboardApp {
           this.whiteboard.updateFromData(data);
           break;
         case 'pages-structure':
-          this.whiteboard.syncPageStructure(data);
-          this.ui.updatePageDisplay(this.whiteboard.currentPageIndex + 1, this.whiteboard.pages.length);
+          if (data.totalPages !== undefined) {
+            this.whiteboard.syncPageStructure(data);
+            this.ui.updatePageDisplay(this.whiteboard.currentPageIndex + 1, this.whiteboard.pages.length);
+          }
           break;
         case 'page-change':
-          this.whiteboard.goToPage(data.pageIndex);
-          this.ui.updatePageDisplay(data.currentPage + 1, data.totalPages);
+          if (data.pageIndex !== undefined) {
+            this.whiteboard.goToPage(data.pageIndex);
+            // Update UI with current whiteboard state
+            this.ui.updatePageDisplay(this.whiteboard.currentPageIndex + 1, this.whiteboard.pages.length);
+          }
           break;
         case 'continuous-drawing':
           this.whiteboard.receiveContinuousDrawing(data);
