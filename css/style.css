@@ -382,6 +382,23 @@ video {
   text-align: center;
   font-size: 11px;
   color: #666;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.connection-status.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.connection-status.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.connection-status.warning {
+  background-color: #fff3cd;
+  color: #856404;
 }
 
 /* Mobile/Tablet responsive */

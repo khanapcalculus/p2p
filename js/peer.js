@@ -282,30 +282,68 @@ class PeerConnection {
     }
   }
 
-  // Get local media stream
+  // Get local media stream with tablet-friendly approach
   async getLocalStream(videoEnabled = true, audioEnabled = true) {
     try {
+      // Check if media devices are available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.warn('Media devices not supported');
+        this.updateStatus('Media not supported on this device');
+        return null;
+      }
+
+      // Tablet-friendly video constraints
+      const videoConstraints = videoEnabled ? {
+        width: { ideal: 640, max: 1280 },
+        height: { ideal: 480, max: 720 },
+        facingMode: 'user'
+      } : false;
+
+      const audioConstraints = audioEnabled ? {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      } : false;
+
       // Try with both video and audio first
-      this.localStream = await navigator.mediaDevices.getUserMedia({
-        video: videoEnabled,
-        audio: audioEnabled
-      });
-      return this.localStream;
-    } catch (error) {
-      console.warn('Failed to get media with both video and audio:', error);
+      console.log('Attempting to access camera and microphone...');
+      try {
+        this.localStream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: audioConstraints
+        });
+        console.log('Successfully obtained video and audio stream');
+        this.updateStatus('Camera and microphone access granted', 'success');
+        return this.localStream;
+      } catch (error) {
+        console.warn('Failed to get both video and audio:', error.name, error.message);
+        
+                 // Handle specific tablet/mobile errors
+         if (error.name === 'NotAllowedError') {
+           this.updateStatus('Camera/microphone access denied. Please allow in browser settings.', 'error');
+         } else if (error.name === 'NotFoundError') {
+           this.updateStatus('No camera or microphone found', 'warning');
+         } else if (error.name === 'NotReadableError') {
+           this.updateStatus('Camera/microphone is being used by another app', 'warning');
+         }
+      }
       
       // Try with video only if audio fails
-      if (videoEnabled && audioEnabled) {
+      if (videoEnabled) {
         try {
           console.log('Trying video only...');
           this.localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
+            video: videoConstraints,
             audio: false
           });
           console.log('Video-only stream obtained');
+          this.updateStatus('Video access granted (no audio)');
           return this.localStream;
         } catch (videoError) {
-          console.warn('Failed to get video stream:', videoError);
+          console.warn('Failed to get video stream:', videoError.name, videoError.message);
+          if (videoError.name === 'NotAllowedError') {
+            this.updateStatus('Camera access denied');
+          }
         }
       }
       
@@ -315,18 +353,27 @@ class PeerConnection {
           console.log('Trying audio only...');
           this.localStream = await navigator.mediaDevices.getUserMedia({
             video: false,
-            audio: true
+            audio: audioConstraints
           });
           console.log('Audio-only stream obtained');
+          this.updateStatus('Audio access granted (no video)');
           return this.localStream;
         } catch (audioError) {
-          console.warn('Failed to get audio stream:', audioError);
+          console.warn('Failed to get audio stream:', audioError.name, audioError.message);
+          if (audioError.name === 'NotAllowedError') {
+            this.updateStatus('Microphone access denied');
+          }
         }
       }
       
-      // If all media fails, continue without media
+      // If all media fails, continue without media but provide helpful message
       console.log('No media available, continuing without audio/video');
-      this.updateStatus('No camera/microphone access - whiteboard will work without video/audio');
+      this.updateStatus('No camera/microphone access - whiteboard works without media. Try refreshing and allowing permissions.');
+      return null;
+      
+    } catch (error) {
+      console.error('Unexpected error accessing media:', error);
+      this.updateStatus('Media access error - whiteboard will work without video/audio');
       return null;
     }
   }
@@ -468,9 +515,9 @@ class PeerConnection {
   }
 
   // Update connection status
-  updateStatus(status) {
+  updateStatus(status, type = 'info') {
     console.log(status);
-    this.callbacks.onStatusChange(status);
+    this.callbacks.onStatusChange(status, type);
   }
 
   // Close the connection

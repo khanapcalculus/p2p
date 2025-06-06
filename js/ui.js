@@ -11,6 +11,7 @@ class UI {
       toggleVideoBtn: document.getElementById('toggle-video'),
       toggleAudioBtn: document.getElementById('toggle-audio'),
       shareScreenBtn: document.getElementById('share-screen'),
+      retryCameraBtn: document.getElementById('retry-camera'),
       statusMessage: document.getElementById('status-message'),
       pencilTool: document.getElementById('pencil-tool'),
       lineTool: document.getElementById('line-tool'),
@@ -158,6 +159,12 @@ class UI {
       }
     });
     
+    this.elements.retryCameraBtn.addEventListener('click', () => {
+      if (this.onRetryCamera) {
+        this.onRetryCamera();
+      }
+    });
+    
     // Room controls
     this.elements.createBtn.addEventListener('click', () => {
       if (this.onCreateRoom) {
@@ -211,8 +218,16 @@ class UI {
     }
   }
 
-  updateStatus(message) {
+  updateStatus(message, type = 'normal') {
     this.elements.statusMessage.textContent = message;
+    
+    // Remove existing status classes
+    this.elements.statusMessage.classList.remove('error', 'success', 'warning');
+    
+    // Add new status class
+    if (type !== 'normal') {
+      this.elements.statusMessage.classList.add(type);
+    }
   }
 
   updatePageDisplay(currentPage, totalPages) {
@@ -261,7 +276,8 @@ class UI {
       onAddPage,
       onDeletePage,
       onPrevPage,
-      onNextPage
+      onNextPage,
+      onRetryCamera
     } = callbacks;
     
     this.onToolChange = onToolChange;
@@ -277,6 +293,7 @@ class UI {
     this.onDeletePage = onDeletePage;
     this.onPrevPage = onPrevPage;
     this.onNextPage = onNextPage;
+    this.onRetryCamera = onRetryCamera;
   }
 
   updateVideoButtonState(enabled) {

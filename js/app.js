@@ -18,6 +18,7 @@ class WhiteboardApp {
       onToggleVideo: () => this.peer.toggleVideo(),
       onToggleAudio: () => this.peer.toggleAudio(),
       onShareScreen: () => this.peer.shareScreen(),
+      onRetryCamera: () => this.retryMediaAccess(),
       onCreateRoom: (roomId, userName, userRole) => this.createRoom(roomId, userName, userRole),
       onJoinRoom: (roomId, userName, userRole) => this.joinRoom(roomId, userName, userRole),
       onAddPage: () => this.addPage(),
@@ -38,7 +39,7 @@ class WhiteboardApp {
       onConnectionClosed: () => this.onPeerDisconnected(),
       onDataReceived: (data) => this.onDataReceived(data),
       onRemoteStreamReceived: (stream) => this.ui.setRemoteStream(stream),
-      onStatusChange: (status) => this.ui.updateStatus(status)
+      onStatusChange: (status, type) => this.ui.updateStatus(status, type)
     });
 
     // Initialize signaling
@@ -49,18 +50,17 @@ class WhiteboardApp {
     try {
       this.ui.updateStatus('Setting up camera and microphone...');
       
-      // Get local media stream
-      const stream = await this.peer.getLocalStream(true, true);
-      if (stream) {
-        this.ui.setLocalStream(stream);
-      }
+      // Get local media stream with retries for tablets
+      await this.attemptMediaAccess();
       
       // Join the room
       this.peer.joinRoom(roomId, `${userName} (${userRole})`);
       
     } catch (error) {
       console.error('Error creating room:', error);
-      this.ui.updateStatus('Error creating room');
+      this.ui.updateStatus('Error creating room - continuing without media');
+      // Still try to join the room even without media
+      this.peer.joinRoom(roomId, `${userName} (${userRole})`);
     }
   }
 
@@ -68,18 +68,59 @@ class WhiteboardApp {
     try {
       this.ui.updateStatus('Setting up camera and microphone...');
       
-      // Get local media stream
-      const stream = await this.peer.getLocalStream(true, true);
-      if (stream) {
-        this.ui.setLocalStream(stream);
-      }
+      // Get local media stream with retries for tablets
+      await this.attemptMediaAccess();
       
       // Join the room
       this.peer.joinRoom(roomId, `${userName} (${userRole})`);
       
     } catch (error) {
       console.error('Error joining room:', error);
-      this.ui.updateStatus('Error joining room');
+      this.ui.updateStatus('Error joining room - continuing without media');
+      // Still try to join the room even without media
+      this.peer.joinRoom(roomId, `${userName} (${userRole})`);
+    }
+  }
+
+  async attemptMediaAccess() {
+    try {
+      // First attempt
+      const stream = await this.peer.getLocalStream(true, true);
+      if (stream) {
+        this.ui.setLocalStream(stream);
+        return stream;
+      }
+      
+      // If no stream, inform user and continue
+      console.log('No media stream obtained - continuing without media');
+      return null;
+      
+    } catch (error) {
+      console.error('Media access failed:', error);
+      
+      // On tablets, sometimes a second attempt after user interaction works
+      this.ui.updateStatus('Camera access failed. Click "Retry Camera" if needed.');
+      return null;
+    }
+  }
+
+  async retryMediaAccess() {
+    this.ui.updateStatus('Retrying camera access...');
+    
+    try {
+      const stream = await this.peer.getLocalStream(true, true);
+      if (stream) {
+        this.ui.setLocalStream(stream);
+        this.ui.updateStatus('Camera access successful!');
+        return true;
+      } else {
+        this.ui.updateStatus('Camera access failed - continuing without media');
+        return false;
+      }
+    } catch (error) {
+      console.error('Retry media access failed:', error);
+      this.ui.updateStatus('Camera access failed - check browser permissions');
+      return false;
     }
   }
 
