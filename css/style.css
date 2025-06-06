@@ -245,12 +245,45 @@ button:hover {
   background: #f8f9fa;
 }
 
-/* Ensure scrollbars are always visible */
+/* Ensure scrollbars are always visible and large */
 .whiteboard-container {
   overflow: auto !important;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: auto; /* Firefox */
-  scrollbar-color: #6c757d #f8f9fa; /* Firefox */
+  scrollbar-width: thick !important; /* Firefox - thick scrollbars */
+  scrollbar-color: #28a745 #dc3545 !important; /* Firefox - green thumb, red track */
+}
+
+/* Force large scrollbars on ALL devices */
+.whiteboard-container::-webkit-scrollbar {
+  width: 35px !important;
+  height: 35px !important;
+  display: block !important;
+}
+
+.whiteboard-container::-webkit-scrollbar-track {
+  background: #dc3545 !important; /* Red track */
+  border-radius: 18px !important;
+  border: 2px solid #fff !important;
+}
+
+.whiteboard-container::-webkit-scrollbar-thumb {
+  background: #28a745 !important; /* Green thumb */
+  border-radius: 18px !important;
+  border: 4px solid #fff !important;
+  min-height: 70px !important;
+  min-width: 70px !important;
+}
+
+.whiteboard-container::-webkit-scrollbar-thumb:hover {
+  background: #1e7e34 !important; /* Darker green on hover */
+}
+
+.whiteboard-container::-webkit-scrollbar-thumb:active {
+  background: #007bff !important; /* Blue when clicked */
+}
+
+.whiteboard-container::-webkit-scrollbar-corner {
+  background: #ffc107 !important; /* Yellow corner */
 }
 
 /* Floating camera section on right side */
@@ -647,34 +680,34 @@ video {
     min-height: 44px; /* Touch target size */
   }
   
-  /* Enhanced scrollbar for tablet/mobile - Much wider for touch */
+  /* Enhanced scrollbar for tablet/mobile - Extra wide for touch */
   .whiteboard-container::-webkit-scrollbar {
-    width: 30px;
-    height: 30px;
+    width: 40px !important;
+    height: 40px !important;
   }
 
   .whiteboard-container::-webkit-scrollbar-track {
-    background: #e9ecef;
-    border-radius: 15px;
-    border: 2px solid #f8f9fa;
+    background: #dc3545 !important; /* Red background to make it visible */
+    border-radius: 20px !important;
+    border: 3px solid #f8f9fa !important;
   }
   
   .whiteboard-container::-webkit-scrollbar-thumb {
-    background: #495057;
-    border-radius: 15px;
-    border: 5px solid #f8f9fa;
-    min-height: 60px; /* Larger minimum thumb size for touch */
-    min-width: 60px;
+    background: #28a745 !important; /* Green thumb to make it visible */
+    border-radius: 20px !important;
+    border: 6px solid #f8f9fa !important;
+    min-height: 80px !important; /* Even larger minimum thumb size */
+    min-width: 80px !important;
   }
 
   .whiteboard-container::-webkit-scrollbar-thumb:active {
-    background: #212529;
-    border: 3px solid #f8f9fa;
+    background: #007bff !important; /* Blue when active */
+    border: 4px solid #f8f9fa !important;
   }
 
   .whiteboard-container::-webkit-scrollbar-corner {
-    background: #e9ecef;
-    border-radius: 15px;
+    background: #ffc107 !important; /* Yellow corner to make it visible */
+    border-radius: 20px !important;
   }
   
   /* Prevent zoom on inputs */
