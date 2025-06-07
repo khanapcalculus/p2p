@@ -8,7 +8,10 @@ class Whiteboard {
     this.pages = [];
     this.currentPageIndex = 0;
     this.changeTimeout = null; // For debouncing changes
-    this.drawingBuffer = []; // For continuous drawing
+
+    // This will hold temporary paths being drawn by the remote user
+    this.remoteDrawingPaths = {};
+
     this.initialize();
   }
 
@@ -44,11 +47,8 @@ class Whiteboard {
     const containerHeight = window.innerHeight - headerHeight - bottomHeight;
     
     // Canvas dimensions (height is double the width for more vertical workspace)
-    const canvasWidth = 2000;
-    const canvasHeight = 2000; // Height is double the width
-    
-    console.log('Canvas dimensions:', canvasWidth, 'x', canvasHeight);
-    console.log('Container dimensions:', containerWidth, 'x', containerHeight);
+    const canvasWidth = 1000;
+    const canvasHeight = canvasWidth * 2; // Height is double the width
     
     // Get canvas container and set exact dimensions
     const canvasContainer = document.getElementById('whiteboard').parentElement;
@@ -57,30 +57,11 @@ class Whiteboard {
     canvasContainer.style.width = `${containerWidth}px`;
     canvasContainer.style.height = `${containerHeight}px`;
     canvasContainer.style.overflow = 'auto'; // Enable scrollbars always
-    canvasContainer.style.overflowX = 'auto'; // Horizontal scrollbar
-    canvasContainer.style.overflowY = 'auto'; // Vertical scrollbar
-    canvasContainer.style.position = 'relative';
-    canvasContainer.style.margin = '0';
-    canvasContainer.style.padding = '0';
-    canvasContainer.style.border = 'none';
     canvasContainer.style.webkitOverflowScrolling = 'touch'; // Smooth scrolling on iOS
     
     // Set canvas dimensions
     this.canvas.setWidth(canvasWidth);
     this.canvas.setHeight(canvasHeight);
-    
-    // Set canvas element style to remove any margins/padding
-    const canvasElement = document.getElementById('whiteboard');
-    canvasElement.style.margin = '0';
-    canvasElement.style.padding = '0';
-    canvasElement.style.border = 'none';
-    canvasElement.style.display = 'block';
-    
-    // Set canvas element to exact size (no CSS scaling)
-    this.canvas.setDimensions({
-      width: canvasWidth,
-      height: canvasHeight
-    }, { cssOnly: false });
     
     // Performance optimizations
     this.canvas.renderOnAddRemove = false;
@@ -209,23 +190,13 @@ class Whiteboard {
     }
     
     // Update page display
-    this.updatePageDisplay();
-    
-    // Only emit page change if not skipping callback (prevents infinite loops)
-    if (!skipCallback && typeof this.onPageChange === 'function') {
+    if (typeof this.onPageChange === 'function' && !skipCallback) {
       this.onPageChange({
         pageIndex: pageIndex,
         currentPage: this.currentPageIndex,
         totalPages: this.pages.length,
         page: page
       });
-    }
-  }
-
-  updatePageDisplay() {
-    const pageDisplay = document.getElementById('current-page-display');
-    if (pageDisplay && this.pages[this.currentPageIndex]) {
-      pageDisplay.textContent = `Page ${this.currentPageIndex + 1} of ${this.pages.length}`;
     }
   }
 
@@ -248,21 +219,18 @@ class Whiteboard {
     this.canvas.discardActiveObject();
     this.canvas.renderAll();
     
-    // Configure canvas based on tool (removed pan tool)
     switch (tool) {
       case 'pencil':
         this.canvas.isDrawingMode = true;
         this.canvas.freeDrawingBrush.color = this.color;
         this.canvas.freeDrawingBrush.width = this.brushSize;
         this.canvas.selection = false;
-        this.canvas.defaultCursor = 'crosshair';
         break;
       case 'eraser':
         this.canvas.isDrawingMode = true;
-        this.canvas.freeDrawingBrush.color = 'white';
+        this.canvas.freeDrawingBrush.color = '#FFFFFF'; // Eraser is just a white brush
         this.canvas.freeDrawingBrush.width = this.brushSize * 2;
         this.canvas.selection = false;
-        this.canvas.defaultCursor = 'crosshair';
         break;
       default:
         // For line, rect, circle, text tools
@@ -289,58 +257,52 @@ class Whiteboard {
     }
   }
 
-  // Continuous drawing synchronization
-  sendContinuousDrawing(type, data) {
-    if (typeof this.onContinuousDrawing === 'function') {
-      this.onContinuousDrawing({
-        type: type, // 'start', 'move', 'end'
-        data: data,
-        pageIndex: this.currentPageIndex,
-        tool: this.currentTool,
-        color: this.color,
-        brushSize: this.brushSize,
-        timestamp: Date.now()
-      });
-    }
-  }
-
   // Handle received continuous drawing
   receiveContinuousDrawing(drawingData) {
     if (drawingData.pageIndex !== this.currentPageIndex) return;
-    
-    // Apply the drawing data in real-time
-    switch (drawingData.type) {
-      case 'start':
-        // Start a new drawing path
-        this.remoteDrawingPath = new fabric.Path('', {
-          stroke: drawingData.color,
-          strokeWidth: drawingData.brushSize,
-          fill: '',
-          selectable: false
-        });
-        break;
-      case 'move':
-        // Update the drawing path
-        if (this.remoteDrawingPath && drawingData.data) {
-          // Update path data for continuous drawing
-          this.updateRemoteDrawingPath(drawingData.data);
-        }
-        break;
-      case 'end':
-        // Finalize the drawing
-        if (this.remoteDrawingPath) {
-          this.canvas.add(this.remoteDrawingPath);
-          this.canvas.renderAll();
-          this.remoteDrawingPath = null;
-        }
-        break;
-    }
-  }
 
-  updateRemoteDrawingPath(pathData) {
-    // This would need to be implemented based on the specific path format
-    // For now, we'll use the debounced update system
-    this.notifyChange();
+    const pathId = drawingData.id;
+
+    switch (drawingData.type) {
+        case 'start':
+            // Create a new path object when the remote user starts drawing
+            const path = new fabric.Path(`M ${drawingData.data[1]} ${drawingData.data[2]}`, {
+                stroke: drawingData.color,
+                strokeWidth: drawingData.brushSize,
+                fill: null,
+                strokeLineCap: 'round',
+                strokeLineJoin: 'round',
+                selectable: false,
+                evented: false,
+                objectCaching: false, // Important for live drawing performance
+            });
+            this.remoteDrawingPaths[pathId] = path;
+            this.canvas.add(path);
+            break;
+
+        case 'move':
+            const existingPath = this.remoteDrawingPaths[pathId];
+            if (existingPath && drawingData.data) {
+                // Add the new point to the path data array
+                existingPath.path.push(drawingData.data);
+                this.canvas.requestRenderAll();
+            }
+            break;
+
+        case 'end':
+            const finalPath = this.remoteDrawingPaths[pathId];
+            if (finalPath) {
+                // Finalize the path by enabling caching for performance
+                finalPath.set({
+                    objectCaching: true,
+                });
+                delete this.remoteDrawingPaths[pathId];
+                this.canvas.requestRenderAll();
+                // Trigger a debounced save/sync to ensure eventual consistency
+                this.notifyChange();
+            }
+            break;
+    }
   }
 
   // Debounced change notification
@@ -354,24 +316,23 @@ class Whiteboard {
       if (typeof this.onCanvasChange === 'function') {
         this.onCanvasChange({
           pageIndex: this.currentPageIndex,
-          pageData: JSON.stringify(this.canvas),
-          pageStructure: this.getPageStructure()
+          pageData: JSON.stringify(this.canvas)
         });
       }
-    }, 50); // Reduced debounce for more responsive updates
+    }, 200); // Increased debounce to reduce frequency
   }
 
   setupCanvasEvents() {
     let startPoint;
     let shape;
-    let isDrawingPath = false;
+
+    // These are no longer needed here as isDrawingMode handles it
+    // let isDrawingPath = false;
 
     this.canvas.on('mouse:down', (options) => {
+      // For non-pencil/eraser tools
       if (this.currentTool === 'pencil' || this.currentTool === 'eraser') {
-        isDrawingPath = true;
-        const pointer = this.canvas.getPointer(options.e);
-        this.sendContinuousDrawing('start', { x: pointer.x, y: pointer.y });
-        return;
+          return; // Fabric's isDrawingMode will handle this
       }
 
       this.isDrawing = true;
@@ -380,46 +341,22 @@ class Whiteboard {
       switch (this.currentTool) {
         case 'line':
           shape = new fabric.Line(
-            [startPoint.x, startPoint.y, startPoint.x, startPoint.y],
-            {
-              stroke: this.color,
-              strokeWidth: this.brushSize,
-              selectable: true
-            }
+            [startPoint.x, startPoint.y, startPoint.x, startPoint.y], { stroke: this.color, strokeWidth: this.brushSize, selectable: true }
           );
           break;
         case 'rect':
           shape = new fabric.Rect({
-            left: startPoint.x,
-            top: startPoint.y,
-            width: 0,
-            height: 0,
-            fill: 'transparent',
-            stroke: this.color,
-            strokeWidth: this.brushSize,
-            selectable: true
+            left: startPoint.x, top: startPoint.y, width: 0, height: 0, fill: 'transparent', stroke: this.color, strokeWidth: this.brushSize, selectable: true
           });
           break;
         case 'circle':
           shape = new fabric.Circle({
-            left: startPoint.x,
-            top: startPoint.y,
-            radius: 0,
-            fill: 'transparent',
-            stroke: this.color,
-            strokeWidth: this.brushSize,
-            selectable: true
+            left: startPoint.x, top: startPoint.y, radius: 0, fill: 'transparent', stroke: this.color, strokeWidth: this.brushSize, selectable: true
           });
           break;
         case 'text':
           shape = new fabric.IText('Text', {
-            left: startPoint.x,
-            top: startPoint.y,
-            fontFamily: 'Arial',
-            fill: this.color,
-            fontSize: this.brushSize * 5,
-            selectable: true,
-            editable: true
+            left: startPoint.x, top: startPoint.y, fontFamily: 'Arial', fill: this.color, fontSize: this.brushSize * 5, selectable: true, editable: true
           });
           this.canvas.add(shape);
           this.canvas.setActiveObject(shape);
@@ -436,60 +373,60 @@ class Whiteboard {
     });
 
     this.canvas.on('mouse:move', (options) => {
-      // Send continuous drawing data for pencil/eraser
-      if (isDrawingPath && (this.currentTool === 'pencil' || this.currentTool === 'eraser')) {
-        const pointer = this.canvas.getPointer(options.e);
-        this.sendContinuousDrawing('move', { x: pointer.x, y: pointer.y });
+      if (this.currentTool === 'pencil' || this.currentTool === 'eraser') {
+          return;
       }
-      
-      if (!this.isDrawing || this.currentTool === 'text') return;
+
+      if (!this.isDrawing || !shape) return;
 
       const pointer = this.canvas.getPointer(options.e);
-
       switch (this.currentTool) {
         case 'line':
           shape.set({ x2: pointer.x, y2: pointer.y });
           break;
         case 'rect':
-          if (startPoint.x > pointer.x) {
-            shape.set({ left: pointer.x });
-          }
-          if (startPoint.y > pointer.y) {
-            shape.set({ top: pointer.y });
-          }
           shape.set({
-            width: Math.abs(startPoint.x - pointer.x),
-            height: Math.abs(startPoint.y - pointer.y)
+              width: Math.abs(startPoint.x - pointer.x),
+              height: Math.abs(startPoint.y - pointer.y),
+              left: startPoint.x > pointer.x ? pointer.x : startPoint.x,
+              top: startPoint.y > pointer.y ? pointer.y : startPoint.y
           });
           break;
         case 'circle':
-          const radius = Math.sqrt(
-            Math.pow(startPoint.x - pointer.x, 2) +
-            Math.pow(startPoint.y - pointer.y, 2)
-          ) / 2;
-          shape.set({ radius: radius });
+          const radius = Math.sqrt(Math.pow(startPoint.x - pointer.x, 2) + Math.pow(startPoint.y - pointer.y, 2)) / 2;
+          shape.set({
+              radius: radius,
+              left: startPoint.x > pointer.x ? pointer.x + radius : startPoint.x - radius,
+              top: startPoint.y > pointer.y ? pointer.y + radius : startPoint.y - radius
+          });
           break;
       }
-
       this.canvas.requestRenderAll();
     });
 
     this.canvas.on('mouse:up', () => {
-      // End continuous drawing
-      if (isDrawingPath && (this.currentTool === 'pencil' || this.currentTool === 'eraser')) {
-        this.sendContinuousDrawing('end', {});
-        isDrawingPath = false;
+      if (this.currentTool === 'pencil' || this.currentTool === 'eraser') {
+          return;
       }
       
       this.isDrawing = false;
-      this.canvas.renderAll();
-      
-      this.notifyChange();
+      if (shape) {
+        this.notifyChange();
+        shape = null;
+      }
     });
 
-    // Handle drawing completion
-    this.canvas.on('path:created', () => {
-      this.notifyChange();
+    // This event fires for both local and remote path creation when using isDrawingMode.
+    // It's the key to our performance improvement.
+    this.canvas.on('path:created', (e) => {
+        // This path was created locally. We must send its data to the peer.
+        // We will send the full path data as a single event.
+        // This is much better than sending the entire canvas JSON.
+        if (this.onContinuousDrawing) {
+            // Send the entire path data in one go
+            const pathData = e.path.toJSON();
+            this.onContinuousDrawing({ type: 'path-created', data: pathData, pageIndex: this.currentPageIndex });
+        }
     });
 
     this.canvas.on('object:modified', () => {
@@ -504,30 +441,21 @@ class Whiteboard {
       this.onCanvasChange({
         pageIndex: this.currentPageIndex,
         pageData: JSON.stringify(this.canvas),
-        pageStructure: this.getPageStructure()
       });
     }
   }
 
-  // Method to update from received data
   updateFromData(data) {
     if (data.pageIndex !== undefined && data.pageData) {
-      // Update specific page
       if (data.pageIndex >= 0 && data.pageIndex < this.pages.length) {
         this.pages[data.pageIndex].data = data.pageData;
         
-        // If it's the current page, reload it
         if (data.pageIndex === this.currentPageIndex) {
           this.canvas.loadFromJSON(data.pageData, () => {
             this.canvas.renderAll();
           });
         }
       }
-    }
-    
-    // Update page structure if provided
-    if (data.pageStructure) {
-      this.syncPageStructure(data.pageStructure);
     }
   }
 
@@ -536,32 +464,23 @@ class Whiteboard {
     while (this.pages.length < remoteStructure.totalPages) {
       const pageNumber = this.pages.length + 1;
       const newPage = {
-        id: `page-${pageNumber}`,
-        number: pageNumber,
-        data: null, // Ensure data property exists
-        title: `Page ${pageNumber}`
+        id: `page-${pageNumber}`, number: pageNumber, data: null, title: `Page ${pageNumber}`
       };
       this.pages.push(newPage);
     }
     
-    // Update page display
-    this.updatePageDisplay();
+    // Update page display locally
+    if (this.onPageChange) {
+        this.onPageChange({
+            currentPage: this.currentPageIndex,
+            totalPages: this.pages.length,
+        });
+    }
   }
-
+  
   // Set callbacks
-  setChangeCallback(callback) {
-    this.onCanvasChange = callback;
-  }
-
-  setPagesChangeCallback(callback) {
-    this.onPagesChange = callback;
-  }
-
-  setPageChangeCallback(callback) {
-    this.onPageChange = callback;
-  }
-
-  setContinuousDrawingCallback(callback) {
-    this.onContinuousDrawing = callback;
-  }
+  setChangeCallback(callback) { this.onCanvasChange = callback; }
+  setPagesChangeCallback(callback) { this.onPagesChange = callback; }
+  setPageChangeCallback(callback) { this.onPageChange = callback; }
+  setContinuousDrawingCallback(callback) { this.onContinuousDrawing = callback; }
 }
