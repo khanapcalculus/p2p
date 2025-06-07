@@ -48,7 +48,7 @@ class Whiteboard {
     
     // Canvas dimensions (height is double the width for more vertical workspace)
     const canvasWidth = 1000;
-    const canvasHeight = canvasWidth * 2; // Height is double the width
+    const canvasHeight = 1000; // Height is double the width
     
     // Get canvas container and set exact dimensions
     const canvasContainer = document.getElementById('whiteboard').parentElement;
