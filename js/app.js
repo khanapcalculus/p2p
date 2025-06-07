@@ -29,7 +29,6 @@ class WhiteboardApp {
 
     // Setup whiteboard callbacks
     this.whiteboard.setChangeCallback((data) => this.onCanvasChange(data));
-    this.whiteboard.setPagesChangeCallback((data) => this.onPagesChange(data));
     this.whiteboard.setPageChangeCallback((data) => this.onPageChange(data));
     this.whiteboard.setContinuousDrawingCallback((data) => this.onContinuousDrawing(data));
 
@@ -42,127 +41,61 @@ class WhiteboardApp {
       onStatusChange: (status, type) => this.ui.updateStatus(status, type)
     });
 
-    // Initialize signaling
-    this.peer.initializeSignaling('https://serverp2p.onrender.com');
+    // Initialize signaling to the local server
+    this.peer.initializeSignaling('http://localhost:3000');
   }
 
   async createRoom(roomId, userName, userRole) {
+    this.ui.updateStatus('Setting up media...', 'info');
     try {
-      // Special instruction for tablets
-      if (this.isTabletDevice()) {
-        this.ui.updateStatus('📱 <strong>Tablet Users:</strong> Please close any notification bubbles, overlays, or popup windows from other apps before allowing camera access.', 'info');
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Give user time to read
-      }
-      
-      this.ui.updateStatus('Setting up camera and microphone...');
-      
-      // Get local media stream with retries for tablets
-      await this.attemptMediaAccess();
-      
-      // Join the room
+      await this.peer.getLocalStream(true, true);
+      this.ui.setLocalStream(this.peer.localStream);
       this.peer.joinRoom(roomId, `${userName} (${userRole})`);
-      
     } catch (error) {
       console.error('Error creating room:', error);
-      this.ui.updateStatus('Error creating room - continuing without media');
-      // Still try to join the room even without media
+      this.ui.updateStatus('Error creating room. Continuing without media.', 'error');
       this.peer.joinRoom(roomId, `${userName} (${userRole})`);
     }
   }
 
   async joinRoom(roomId, userName, userRole) {
+    this.ui.updateStatus('Joining room and setting up media...', 'info');
     try {
-      // Special instruction for tablets
-      if (this.isTabletDevice()) {
-        this.ui.updateStatus('📱 <strong>Tablet Users:</strong> Please close any notification bubbles, overlays, or popup windows from other apps before allowing camera access.', 'info');
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Give user time to read
-      }
-      
-      this.ui.updateStatus('Setting up camera and microphone...');
-      
-      // Get local media stream with retries for tablets
-      await this.attemptMediaAccess();
-      
-      // Join the room
+      await this.peer.getLocalStream(true, true);
+      this.ui.setLocalStream(this.peer.localStream);
       this.peer.joinRoom(roomId, `${userName} (${userRole})`);
-      
     } catch (error) {
       console.error('Error joining room:', error);
-      this.ui.updateStatus('Error joining room - continuing without media');
-      // Still try to join the room even without media
+      this.ui.updateStatus('Error joining room. Continuing without media.', 'error');
       this.peer.joinRoom(roomId, `${userName} (${userRole})`);
-    }
-  }
-
-  async attemptMediaAccess() {
-    try {
-      // For tablets, we might need to request media access with user gesture
-      console.log('Attempting media access...');
-      
-      // First attempt
-      const stream = await this.peer.getLocalStream(true, true);
-      if (stream) {
-        this.ui.setLocalStream(stream);
-        return stream;
-      }
-      
-      // If no stream, inform user and continue
-      console.log('No media stream obtained - continuing without media');
-      this.ui.updateStatus('📱 Camera/microphone not available. Click "🔄 Retry Camera" to try again.', 'warning');
-      return null;
-      
-    } catch (error) {
-      console.error('Media access failed:', error);
-      
-      // On tablets, sometimes a second attempt after user interaction works
-      this.ui.updateStatus('📱 Camera access failed on first try. This is common on tablets.<br/>Click "🔄 Retry Camera" to try again.', 'warning');
-      return null;
     }
   }
 
   async retryMediaAccess() {
-    this.ui.updateStatus('🔄 Retrying camera and microphone access...', 'info');
-    
-    try {
-      // On tablets, try with a slight delay to ensure user gesture is processed
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      const stream = await this.peer.getLocalStream(true, true);
-      if (stream) {
-        this.ui.setLocalStream(stream);
-        this.ui.updateStatus('✅ Camera and microphone access successful!', 'success');
-        
-        // Ensure media is properly connected to peer if connected
-        if (this.peer.peer && this.peer.peer.connectionState === 'connected') {
-          this.peer.ensureMediaConnection();
-          this.ui.updateStatus('📹🎤 Media connected to peer successfully!', 'success');
-        }
-        
-        return true;
-      } else {
-        this.ui.updateStatus('⚠️ Camera/microphone access failed.<br/>Please check your device permissions and try again.<br/>The whiteboard works without media.', 'warning');
-        return false;
-      }
-    } catch (error) {
-      console.error('Retry media access failed:', error);
-      this.ui.updateStatus(`❌ Camera access failed: ${error.message}<br/>Please check browser permissions in Settings.`, 'error');
-      return false;
+    this.ui.updateStatus('Retrying camera access...', 'info');
+    const stream = await this.peer.getLocalStream(true, true);
+    if (stream) {
+      this.ui.setLocalStream(stream);
+      this.ui.updateStatus('Media access successful!', 'success');
+    } else {
+      this.ui.updateStatus('Failed to get media access.', 'warning');
     }
   }
 
   onPeerConnected() {
     this.isConnected = true;
-    this.ui.updateStatus('Connected to peer - Ready to collaborate!');
-    
-    // Send current whiteboard state to new peer
+    this.ui.updateStatus('Connected to peer!', 'success');
+    // Sync the current state to the new peer
     this.syncWhiteboard();
   }
 
   onPeerDisconnected() {
     this.isConnected = false;
-    this.ui.updateStatus('Peer disconnected');
+    this.ui.updateStatus('Peer disconnected', 'warning');
+    this.ui.setRemoteStream(null); // Clear the remote video feed
   }
 
+  // Called for shapes, text, and modifications (sends full canvas state)
   onCanvasChange(data) {
     if (this.isConnected) {
       this.peer.sendData(JSON.stringify({
@@ -171,34 +104,24 @@ class WhiteboardApp {
       }));
     }
   }
-
-  onPagesChange(data) {
-    if (this.isConnected) {
-      this.peer.sendData(JSON.stringify({
-        type: 'pages-structure',
-        ...data
-      }));
-    }
-  }
-
-  onPageChange(data) {
-    if (this.isConnected) {
-      this.peer.sendData(JSON.stringify({
-        type: 'page-change',
-        ...data
-      }));
-      
-      // Update UI
-      this.ui.updatePageDisplay(data.currentPage + 1, data.totalPages);
-    } else {
-      // Update UI locally if not connected
-      this.ui.updatePageDisplay(data.currentPage + 1, data.totalPages);
-    }
-  }
-
+  
+  // Called only for pencil/eraser (sends only the new path)
   onContinuousDrawing(data) {
     if (this.isConnected) {
       this.peer.sendContinuousDrawing(data);
+    }
+  }
+  
+  onPageChange(data) {
+    // Update the local UI
+    this.ui.updatePageDisplay(data.currentPage, data.totalPages);
+    
+    // Sync the page change with the peer
+    if (this.isConnected) {
+      this.peer.sendData(JSON.stringify({
+        type: 'page-change',
+        pageIndex: this.whiteboard.currentPageIndex,
+      }));
     }
   }
 
@@ -208,51 +131,38 @@ class WhiteboardApp {
       
       switch (data.type) {
         case 'canvas-change':
+          // Handles shapes, text, and modifications
           this.whiteboard.updateFromData(data);
           break;
-        case 'pages-structure':
-          if (data.totalPages !== undefined) {
-            this.whiteboard.syncPageStructure(data);
-            this.ui.updatePageDisplay(this.whiteboard.currentPageIndex + 1, this.whiteboard.pages.length);
-          }
-          break;
         case 'page-change':
+          // Go to the specified page without sending a callback
           if (data.pageIndex !== undefined) {
-            // Use skipCallback=true to prevent echo back to sender
             this.whiteboard.goToPage(data.pageIndex, true);
-            // Update UI with current whiteboard state
-            this.ui.updatePageDisplay(this.whiteboard.currentPageIndex + 1, this.whiteboard.pages.length);
           }
           break;
         case 'continuous-drawing':
+          // Handles the real-time pencil/eraser drawing
           this.whiteboard.receiveContinuousDrawing(data);
           break;
         default:
-          console.log('Unknown data type:', data.type);
+          console.log('Unknown data type received:', data.type);
       }
     } catch (error) {
-      console.error('Error parsing received data:', error);
+      console.error('Error parsing received data:', error, jsonData);
     }
   }
 
   syncWhiteboard() {
-    // Send current page structure
-    const pagesData = {
-      type: 'pages-structure',
-      pageStructure: this.whiteboard.getPageStructure(),
-      currentPageIndex: this.whiteboard.currentPageIndex
-    };
-    this.peer.sendData(JSON.stringify(pagesData));
-
-    // Send current page data
-    const currentPageData = {
+    // Send the full current page data to the new peer
+    const fullCanvasData = {
       type: 'canvas-change',
-      pageData: JSON.stringify(this.whiteboard.canvas),
-      pageIndex: this.whiteboard.currentPageIndex
+      pageIndex: this.whiteboard.currentPageIndex,
+      pageData: JSON.stringify(this.whiteboard.canvas)
     };
-    this.peer.sendData(JSON.stringify(currentPageData));
+    this.peer.sendData(JSON.stringify(fullCanvasData));
   }
 
+  // Page Controls
   clearCurrentPage() {
     this.whiteboard.clearCurrentPage();
   }
@@ -264,27 +174,17 @@ class WhiteboardApp {
   deletePage() {
     if (this.whiteboard.pages.length > 1) {
       this.whiteboard.deletePage(this.whiteboard.currentPageIndex);
+    } else {
+        alert("Cannot delete the last page.");
     }
   }
 
   prevPage() {
-    if (this.whiteboard.currentPageIndex > 0) {
-      // Local navigation - allow callback to sync with peer
-      this.whiteboard.goToPage(this.whiteboard.currentPageIndex - 1, false);
-    }
+    this.whiteboard.goToPage(this.whiteboard.currentPageIndex - 1);
   }
 
   nextPage() {
-    if (this.whiteboard.currentPageIndex < this.whiteboard.pages.length - 1) {
-      // Local navigation - allow callback to sync with peer
-      this.whiteboard.goToPage(this.whiteboard.currentPageIndex + 1, false);
-    }
-  }
-
-  // Detect if device is likely a tablet
-  isTabletDevice() {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    return /iPad|Android/i.test(userAgent) && 'ontouchstart' in window;
+    this.whiteboard.goToPage(this.whiteboard.currentPageIndex + 1);
   }
 }
 
